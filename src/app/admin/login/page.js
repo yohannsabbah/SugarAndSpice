@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import BrandTitle from '@/components/BrandTitle'
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const next = params.get('next') || '/admin'
@@ -33,30 +33,38 @@ export default function AdminLoginPage() {
   }
 
   return (
+    <form className="card" onSubmit={handleSubmit}>
+      <div className="stack">
+        <div>
+          <label className="label" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+            autoComplete="current-password"
+          />
+        </div>
+        {error && <div className="error">{error}</div>}
+        <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy || !password}>
+          {busy ? 'Checking…' : 'Sign in'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+export default function AdminLoginPage() {
+  return (
     <div className="container">
       <BrandTitle subtitle="admin login" href={null} />
-      <form className="card" onSubmit={handleSubmit}>
-        <div className="stack">
-          <div>
-            <label className="label" htmlFor="password">
-              Password
-            </label>
-            <input
-              id="password"
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-              autoComplete="current-password"
-            />
-          </div>
-          {error && <div className="error">{error}</div>}
-          <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy || !password}>
-            {busy ? 'Checking…' : 'Sign in'}
-          </button>
-        </div>
-      </form>
+      <Suspense fallback={<div className="card muted">Loading…</div>}>
+        <AdminLoginForm />
+      </Suspense>
     </div>
   )
 }
