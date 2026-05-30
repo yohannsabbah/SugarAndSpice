@@ -1,0 +1,21 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci --cache .npm --prefer-offline
+    build:
+      commands:
+        # Bake server env vars into .env.production so they reach the SSR runtime.
+        # Amplify exposes console env vars to the build process, but not always to
+        # the Next.js SSR Lambda — this ensures process.env.X works at request time.
+        - env | grep -E "^(SUPABASE_URL|SUPABASE_KEY|ADMIN_PASSWORD)=" >> .env.production
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - .next/cache/**/*
+      - .npm/**/*
