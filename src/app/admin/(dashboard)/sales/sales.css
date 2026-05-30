@@ -1,0 +1,55 @@
+.sales-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.sales-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 0;
+}
+
+.sales-day {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 6px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.sales-day-empty {
+  background: transparent;
+  border: none;
+}
+
+.sales-day-today {
+  border-color: var(--brand-blue);
+  background: var(--brand-blue-bg);
+}
+
+.sales-day-num {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.sales-day-amount {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--brand-blue-dark);
+  text-align: right;
+}
+
+.sales-day-empty-text {
+  color: #ccc;
+  font-size: 0.8rem;
+  text-align: right;
+}
