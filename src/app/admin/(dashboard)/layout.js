@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { isAdmin } from '@/lib/admin'
 import BrandTitle from '@/components/BrandTitle'
+import AdminMonthPickerSlot from '@/components/AdminMonthPickerSlot'
 import LogoutButton from './LogoutButton'
 
 export default async function DashboardLayout({ children }) {
@@ -36,7 +37,12 @@ export default async function DashboardLayout({ children }) {
         <NavLink href="/admin/employees">Employees</NavLink>
         <NavLink href="/admin/shifts">Shifts</NavLink>
         <NavLink href="/admin/sales">Sales</NavLink>
+        <NavLink href="/admin/nayax">In-store</NavLink>
+        <NavLink href="/admin/wolt">Wolt</NavLink>
+        <NavLink href="/admin/expenses">Expenses</NavLink>
+        <NavLink href="/admin/finance">Finance</NavLink>
       </nav>
+      <AdminMonthPickerSlot />
       {children}
     </div>
   )

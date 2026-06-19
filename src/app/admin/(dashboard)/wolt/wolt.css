@@ -1,0 +1,235 @@
+/* Wolt insights page */
+
+.section-h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* ── KPI row ──────────────────────────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.kpi { padding: 16px; }
+.kpi-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.kpi-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-subtitle {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-blue-dark);
+}
+.kpi-delta {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.kpi-delta.up { color: var(--success); }
+.kpi-delta.down { color: var(--danger); }
+.kpi.warn .kpi-value { color: var(--warning); }
+.kpi.ok .kpi-value { color: var(--success); }
+
+/* Dual-metric KPI (e.g. Orders / AOV) */
+.kpi-dual-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+.kpi-dual-cell {
+  flex: 1;
+  min-width: 0;
+}
+.kpi-dual-cell .kpi-value {
+  margin-top: 0;
+}
+
+/* Reviews KPI: 5 stacked rows with horizontal bars */
+.review-bars {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+.review-bar-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.review-star-label {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.review-bar-track {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.review-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+.review-bar-fill.star-5 { background: var(--success); }
+.review-bar-fill.star-4 { background: #8fc995; }
+.review-bar-fill.star-3 { background: var(--warning); }
+.review-bar-fill.star-2 { background: #d97a4a; }
+.review-bar-fill.star-1 { background: var(--danger); }
+.review-bar-count {
+  text-align: right;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+/* Waterfall card — gross → net breakdown */
+.waterfall-card .section-h2 { margin-bottom: 0; }
+.waterfall {
+  display: grid;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.wf-row {
+  display: grid;
+  grid-template-columns: 1fr auto 70px;
+  gap: 16px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.wf-label {
+  font-size: 0.92rem;
+}
+.wf-label .muted {
+  font-weight: 400;
+  font-size: 0.82rem;
+}
+.wf-amount {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.wf-pct {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.wf-deduct .wf-amount { color: var(--danger); }
+.wf-deduct.wf-indent .wf-label { padding-left: 16px; font-size: 0.88rem; }
+.wf-subtotal {
+  background: var(--bg);
+  font-weight: 600;
+}
+.wf-total {
+  background: var(--brand-blue-bg);
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.wf-total .wf-amount { font-size: 1.05rem; }
+.wf-final {
+  background: var(--brand-pink-bg);
+  margin-top: 4px;
+}
+.wf-final .wf-amount { color: var(--brand-pink-dark); }
+.wf-section-h {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+  padding: 4px 10px;
+}
+
+/* ── Insights grid ────────────────────────────────────────────────────────── */
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+.insight {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.insight.ok   { border-left-color: var(--success); }
+.insight.warn { border-left-color: var(--warning); }
+.insight.bad  { border-left-color: var(--danger); }
+.insight.info { border-left-color: var(--brand-blue); }
+
+.insight-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+.insight-emoji { margin-right: 6px; }
+.insight-body { font-size: 0.88rem; line-height: 1.45; color: var(--fg-muted); }
+.insight-body b { color: var(--fg); }
+
+/* ── Two-column grid for top items + categories ───────────────────────────── */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 760px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Numeric cells ─────────────────────────────────────────────────────────
+   .table td/th specificity is 0,1,1 — we need at least that to override the
+   default text-align:left from globals.css. */
+.num,
+.table td.num,
+.table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.warn-text { color: var(--warning); font-weight: 600; }
+.up-text   { color: var(--success); font-weight: 600; }
+.down-text { color: var(--danger); font-weight: 600; }
+
+/* ── Top items table with inline bar ──────────────────────────────────────── */
+.top-items td { vertical-align: middle; }
+.item-name { font-weight: 500; }
+.item-cat  { font-size: 0.75rem; }
+.bar-cell {
+  position: relative;
+  min-width: 80px;
+  text-align: right;
+  padding-right: 4px;
+}
+.bar-cell .bar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 12px;
+  background: var(--brand-blue-soft);
+  border-radius: 3px;
+  opacity: 0.55;
+  z-index: 0;
+}
+.bar-cell span {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+}

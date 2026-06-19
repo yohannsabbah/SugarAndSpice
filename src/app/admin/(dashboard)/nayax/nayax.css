@@ -1,0 +1,105 @@
+/* Nayax (in-store) page — uses wolt.css for shared bits (KPI, insights, tables).
+   Only page-specific patterns live here: hourly bar chart + payments stacked bar. */
+
+/* ── Hourly chart ──────────────────────────────────────────────────────────── */
+.hourly-chart {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 4px;
+  align-items: end;
+}
+
+.hourly-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hourly-bar-wrap {
+  width: 100%;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.hourly-bar {
+  width: 100%;
+  background: var(--brand-blue-soft, #cfe1f5);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: background 0.15s ease;
+}
+
+.hourly-bar.peak {
+  background: var(--brand-pink, #e87aa3);
+}
+
+.hourly-col:hover .hourly-bar {
+  background: var(--brand-blue, #5a8bc4);
+}
+
+.hourly-label {
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Payments stacked bar + legend dot ─────────────────────────────────────── */
+.payments-bar {
+  display: flex;
+  height: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.payments-bar-seg {
+  height: 100%;
+  transition: opacity 0.15s ease;
+}
+
+.payments-bar-seg:hover {
+  opacity: 0.85;
+}
+
+.payments-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ── Upload form ──────────────────────────────────────────────────────────── */
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-field > span:first-child {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+}
+
+.upload-field input[type="file"],
+.upload-field input[type="month"] {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0.88rem;
+}

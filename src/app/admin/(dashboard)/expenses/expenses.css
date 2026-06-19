@@ -1,0 +1,90 @@
+/* Expenses page — uses wolt.css for shared bits. */
+
+/* ── Category breakdown inline bar ─────────────────────────────────────────── */
+.expenses-bar-cell {
+  width: 140px;
+  padding-right: 4px;
+}
+.expenses-bar {
+  height: 10px;
+  background: var(--brand-pink-soft, #f7c8d8);
+  border-radius: 3px;
+  min-width: 2px;
+}
+
+/* ── Transactions table ────────────────────────────────────────────────────── */
+.expenses-table-wrap {
+  overflow-x: auto;
+}
+
+.expenses-table td {
+  vertical-align: middle;
+  padding: 8px 10px;
+}
+
+.expenses-table .num-date {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+
+.expenses-table tr.row-dim td {
+  opacity: 0.5;
+}
+
+.cat-select {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font-size: 0.82rem;
+  font-family: inherit;
+  max-width: 160px;
+}
+
+.btn-link-danger {
+  background: transparent;
+  border: 0;
+  color: var(--danger);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.btn-link-danger:hover { opacity: 0.7; }
+.btn-link-danger:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Reuse the upload-grid/upload-field styles from nayax.css — import here so
+   this page is self-contained. */
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.upload-field > span:first-child {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+}
+.upload-field input[type="file"],
+.upload-field input[type="month"],
+.upload-field input[type="date"],
+.upload-field input[type="number"],
+.upload-field input[type="text"],
+.upload-field select {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0.88rem;
+  font-family: inherit;
+}

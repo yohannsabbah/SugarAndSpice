@@ -313,3 +313,92 @@ textarea {
 .table tr:last-child td {
   border-bottom: none;
 }
+
+/* ----- /tv display screen (Apple TV in a vertical orientation) ----- */
+.tv-stage {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.tv-stage-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(232, 155, 176, 0.55), transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(90, 156, 196, 0.55), transparent 60%),
+    linear-gradient(135deg, var(--brand-pink-soft) 0%, var(--brand-blue-soft) 100%);
+  background-size: 140% 140%, 160% 160%, 200% 200%;
+  background-position: 0% 0%, 100% 100%, 0% 0%;
+  animation: tv-bg-drift 18s ease-in-out infinite alternate;
+}
+
+.tv-stage-inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.25) 100%);
+}
+
+@keyframes tv-bg-drift {
+  0% {
+    background-position: 0% 0%, 100% 100%, 0% 0%;
+  }
+  100% {
+    background-position: 20% 30%, 70% 70%, 100% 100%;
+  }
+}
+
+.tv-stage--rot0 .tv-stage-inner {
+  width: 100vw;
+  height: 100vh;
+}
+
+.tv-stage--rot90 .tv-stage-inner {
+  width: 100vh;
+  height: 100vw;
+  transform-origin: top left;
+  transform: translate(100vw, 0) rotate(90deg);
+}
+
+.tv-stage--rot180 .tv-stage-inner {
+  width: 100vw;
+  height: 100vh;
+  transform-origin: center center;
+  transform: rotate(180deg);
+}
+
+.tv-stage--rot270 .tv-stage-inner {
+  width: 100vh;
+  height: 100vw;
+  transform-origin: top left;
+  transform: translate(0, 100vh) rotate(-90deg);
+}
+
+.tv-logo {
+  width: min(55%, 60vmin);
+  max-width: 900px;
+  min-width: 180px;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  animation: tv-breathe 4.5s ease-in-out infinite;
+  filter: drop-shadow(0 12px 48px rgba(31, 51, 73, 0.35));
+}
+
+@keyframes tv-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}

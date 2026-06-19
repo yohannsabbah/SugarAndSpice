@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { listEmployees } from '@/lib/db/employees'
 import { listShifts } from '@/lib/db/shifts'
+import { getWoltPeriodSummaries } from '@/lib/db/wolt'
 import { formatDuration, formatTime } from '@/lib/format'
-import MonthPicker from '@/components/MonthPicker'
+
+const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
 
 export const dynamic = 'force-dynamic'
 
@@ -46,14 +48,16 @@ export default async function AdminOverviewPage({ searchParams }) {
   const sp = await searchParams
   const { year, month } = parseMonth(sp?.month)
   const bounds = monthBoundsFor({ year, month })
-  const monthYm = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthLabel = bounds.startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
-  const [employees, recentShifts, monthShifts] = await Promise.all([
+  const [employees, recentShifts, monthShifts, woltPeriods] = await Promise.all([
     listEmployees({ includeInactive: true }),
     listShifts({ limit: 20 }),
     listShifts({ from: bounds.start, to: bounds.end, limit: 1000 }),
+    getWoltPeriodSummaries().catch(() => []),
   ])
+
+  const latestWolt = woltPeriods[woltPeriods.length - 1] || null
 
   const openShifts = recentShifts.filter((s) => !s.ended_at)
   const activeEmployees = employees.filter((e) => e.active).length
@@ -61,12 +65,53 @@ export default async function AdminOverviewPage({ searchParams }) {
 
   return (
     <div className="stack" style={{ gap: 20 }}>
-      <MonthPicker value={monthYm} />
-
       <div className="row" style={{ gap: 16 }}>
         <StatCard label="Active employees" value={activeEmployees} />
         <StatCard label="On shift now" value={openShifts.length} />
         <StatCard label="Total employees" value={employees.length} />
+      </div>
+
+      {/* Section tiles — direct entry to each admin area */}
+      <div
+        style={{
+          display: 'grid',
+          gap: 12,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        }}
+      >
+        <SectionTile
+          href="/admin/wolt"
+          title="Wolt insights"
+          subtitle={
+            latestWolt
+              ? `Last payout ${ILS.format(latestWolt.net_payout || 0)} · ${latestWolt.orders_delivered} orders`
+              : 'No data yet'
+          }
+          accent="pink"
+          badge={latestWolt ? `P${latestWolt.period_num}` : null}
+        />
+        <SectionTile
+          href="/admin/sales"
+          title="In-store sales"
+          subtitle="Daily Nayax totals"
+          accent="blue"
+        />
+        <SectionTile
+          href="/admin/shifts"
+          title="Shifts"
+          subtitle={
+            openShifts.length
+              ? `${openShifts.length} on shift now`
+              : 'Hours per employee'
+          }
+          accent="blue"
+        />
+        <SectionTile
+          href="/admin/employees"
+          title="Employees"
+          subtitle={`${activeEmployees} active`}
+          accent="blue"
+        />
       </div>
 
       <div className="card">
@@ -134,6 +179,40 @@ export default async function AdminOverviewPage({ searchParams }) {
         )}
       </div>
     </div>
+  )
+}
+
+function SectionTile({ href, title, subtitle, accent, badge }) {
+  const accentColor = accent === 'pink' ? 'var(--brand-pink)' : 'var(--brand-blue)'
+  return (
+    <Link
+      href={href}
+      style={{
+        display: 'block',
+        padding: '16px',
+        borderRadius: 12,
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderLeft: `4px solid ${accentColor}`,
+        boxShadow: 'var(--shadow)',
+        transition: 'transform 0.05s ease, box-shadow 0.15s ease',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{title}</div>
+        {badge && (
+          <span style={{
+            fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.5,
+            padding: '2px 8px', borderRadius: 999,
+            background: accentColor, color: 'white',
+          }}>{badge}</span>
+        )}
+      </div>
+      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>{subtitle}</div>
+      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: accentColor, marginTop: 8 }}>
+        Open →
+      </div>
+    </Link>
   )
 }
 
