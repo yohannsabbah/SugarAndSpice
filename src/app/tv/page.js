@@ -1,3 +1,5 @@
+import TvSlideshow from '@/components/TvSlideshow'
+
 export const metadata = {
   title: 'Sugar & Spice',
 }
@@ -18,7 +20,7 @@ export default async function TvPage({ searchParams }) {
   return (
     <div className={stageClass}>
       <div className="tv-stage-inner">
-        <img src="/logo.png" alt="Sugar & Spice" className="tv-logo" />
+        <TvSlideshow />
       </div>
     </div>
   )

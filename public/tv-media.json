@@ -1,0 +1,14 @@
+{
+  "baseUrl": "https://sugarandspicehaifa.s3.us-east-1.amazonaws.com/tv/",
+  "items": [
+    { "file": "cupcake.jpg" },
+    { "file": "matcha_movie.mov" },
+    { "file": "mix_bowls.jpg" },
+    { "file": "salmon_bowl_prep.mov" },
+    { "file": "salmon_bowl.jpg" },
+    { "file": "tuna_bowl.jpg" },
+    { "file": "mochi_menu.jpg" },
+    { "file": "healthy.jpg" },
+    { "file": "cupcake_movie.mov" }
+  ]
+}
