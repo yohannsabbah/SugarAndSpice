@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const IMAGE_DURATION_MS = 10000
+const IMAGE_DURATION_MS = 7000
 const TRANSITION_MS = 2000
 const VIDEO_SAFETY_TIMEOUT_MS = 60000
 
