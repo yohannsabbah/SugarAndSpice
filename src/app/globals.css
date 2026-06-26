@@ -410,6 +410,22 @@ textarea {
   overflow: hidden;
 }
 
+.tv-preloader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.tv-preloader img,
+.tv-preloader video {
+  width: 1px;
+  height: 1px;
+}
+
 .tv-slide {
   position: absolute;
   inset: 0;
@@ -418,7 +434,6 @@ textarea {
   justify-content: center;
   overflow: hidden;
   will-change: transform, opacity;
-  background: #000;
 }
 
 .tv-slide-media {

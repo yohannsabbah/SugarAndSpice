@@ -77,6 +77,21 @@ function MediaElement({ item, baseUrl, isPlaying, onEnded, onError }) {
   )
 }
 
+function Preloader({ items, baseUrl }) {
+  return (
+    <div aria-hidden="true" className="tv-preloader">
+      {items.map((item) => {
+        const url = resolveUrl(item, baseUrl)
+        const type = detectType(item)
+        if (type === 'video') {
+          return <video key={`pre-${url}`} src={url} muted playsInline preload="auto" />
+        }
+        return <img key={`pre-${url}`} src={url} alt="" />
+      })}
+    </div>
+  )
+}
+
 function Slideshow({ items, baseUrl }) {
   const len = items.length
 
@@ -161,6 +176,7 @@ function Slideshow({ items, baseUrl }) {
 
   return (
     <div className="tv-slideshow">
+      <Preloader items={items} baseUrl={baseUrl} />
       <div className={laneClass(aIsCurrent)}>
         <MediaElement
           item={aItem}
@@ -201,7 +217,7 @@ export default function TvSlideshow() {
     return <img src="/logo.png" alt="Sugar & Spice" className="tv-logo" />
   }
   if (!data) {
-    return <img src="/logo.png" alt="Sugar & Spice" className="tv-logo" />
+    return null
   }
   return <Slideshow items={data.items} baseUrl={data.baseUrl} />
 }
