@@ -1,42 +1,41 @@
 import 'server-only'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 
-function client() {
-  const region = process.env.TV_S3_REGION
+export const TV_S3_REGION = 'us-east-1'
+export const TV_S3_KEY = 'tv/tv-media.json'
+
+export function tvS3Client() {
   const accessKeyId = process.env.TV_S3_ACCESS_KEY_ID
   const secretAccessKey = process.env.TV_S3_SECRET_ACCESS_KEY
-  if (!region || !accessKeyId || !secretAccessKey) {
-    throw new Error('TV_S3_* environment variables are not configured')
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error('TV_S3_ACCESS_KEY_ID / TV_S3_SECRET_ACCESS_KEY are not configured')
   }
   return new S3Client({
-    region,
+    region: TV_S3_REGION,
     credentials: { accessKeyId, secretAccessKey },
   })
 }
 
-function location() {
+function bucket() {
   const Bucket = process.env.TV_S3_BUCKET
-  const Key = process.env.TV_S3_KEY
-  if (!Bucket || !Key) throw new Error('TV_S3_BUCKET / TV_S3_KEY are not configured')
-  return { Bucket, Key }
+  if (!Bucket) throw new Error('TV_S3_BUCKET is not configured')
+  return Bucket
 }
 
 export async function readTvMedia() {
-  const c = client()
-  const { Bucket, Key } = location()
-  const res = await c.send(new GetObjectCommand({ Bucket, Key }))
+  const c = tvS3Client()
+  const res = await c.send(new GetObjectCommand({ Bucket: bucket(), Key: TV_S3_KEY }))
   const text = await res.Body.transformToString()
   return JSON.parse(text)
 }
 
 export async function writeTvMedia(data) {
-  const c = client()
-  const { Bucket, Key } = location()
+  const c = tvS3Client()
   const body = JSON.stringify(data, null, 2) + '\n'
   await c.send(
     new PutObjectCommand({
-      Bucket,
-      Key,
+      Bucket: bucket(),
+      Key: TV_S3_KEY,
       Body: body,
       ContentType: 'application/json',
       CacheControl: 'no-cache',

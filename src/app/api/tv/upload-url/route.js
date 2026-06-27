@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { isAdmin } from '@/lib/admin'
+import { tvS3Client } from '@/lib/tv-storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,21 +35,22 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
   }
 
-  const region = process.env.TV_S3_REGION
   const bucket = process.env.TV_S3_BUCKET
-  const accessKeyId = process.env.TV_S3_ACCESS_KEY_ID
-  const secretAccessKey = process.env.TV_S3_SECRET_ACCESS_KEY
-  if (!region || !bucket || !accessKeyId || !secretAccessKey) {
-    return NextResponse.json({ error: 'S3 not configured' }, { status: 500 })
+  if (!bucket) {
+    return NextResponse.json({ error: 'TV_S3_BUCKET is not configured' }, { status: 500 })
   }
 
   const ext = extOf(filename)
   const safeName = `${Date.now()}-${sanitize(filename)}${ext ? '.' + ext : ''}`
   const key = `tv/${safeName}`
 
-  const client = new S3Client({ region, credentials: { accessKeyId, secretAccessKey } })
-  const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType })
-  const url = await getSignedUrl(client, command, { expiresIn: 300 })
+  let url
+  try {
+    const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType })
+    url = await getSignedUrl(tvS3Client(), command, { expiresIn: 300 })
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 
   return NextResponse.json({ url, file: safeName, key })
 }
