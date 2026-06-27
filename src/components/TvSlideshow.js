@@ -33,10 +33,37 @@ function resolveUrl(item, baseUrl) {
   return (baseUrl || '') + (item?.file || '')
 }
 
+function TextOverlay({ item, hasVerticalLetterbox }) {
+  if (!item?.text) return null
+  const position = item.textPosition || 'bottom'
+  const size = item.textSize || 'medium'
+  const align = item.textAlign || 'center'
+  const color = item.textColor || '#ffffff'
+  const strip = item.textStrip === true
+  const wantOutside = item.textOverflow !== false
+  const canGoOutside = hasVerticalLetterbox && (position === 'top' || position === 'bottom')
+  const useLetterbox = wantOutside && canGoOutside
+  const posClass = useLetterbox
+    ? `tv-text-pos-${position}-letterbox`
+    : `tv-text-pos-${position}`
+  return (
+    <div
+      className={`tv-text-overlay ${posClass} tv-text-size-${size} tv-text-align-${align} ${strip ? '' : 'tv-text-no-strip'}`}
+      style={{ color }}
+    >
+      <span>{item.text}</span>
+    </div>
+  )
+}
+
 function MediaElement({ item, baseUrl, isPlaying, onEnded, onError }) {
   const url = resolveUrl(item, baseUrl)
   const type = detectType(item)
   const videoRef = useRef(null)
+  const imgRef = useRef(null)
+  const wrapperRef = useRef(null)
+  const [aspect, setAspect] = useState(null)
+  const [slideAspect, setSlideAspect] = useState(null)
 
   useEffect(() => {
     if (type !== 'video' || !videoRef.current) return
@@ -51,29 +78,63 @@ function MediaElement({ item, baseUrl, isPlaying, onEnded, onError }) {
     }
   }, [isPlaying, url, type])
 
-  if (type === 'video') {
-    return (
-      <video
-        key={url}
-        ref={videoRef}
-        src={url}
-        muted
-        playsInline
-        preload="auto"
-        onEnded={onEnded}
-        onError={onError}
-        className="tv-slide-media"
-      />
-    )
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const slide = wrapper?.parentElement
+    if (!slide) return
+    const update = () => {
+      const w = slide.offsetWidth
+      const h = slide.offsetHeight
+      if (w && h) setSlideAspect(w / h)
+    }
+    update()
+    const obs = new ResizeObserver(update)
+    obs.observe(slide)
+    return () => obs.disconnect()
+  }, [])
+
+  function captureAspect() {
+    const el = type === 'video' ? videoRef.current : imgRef.current
+    if (!el) return
+    const w = el.naturalWidth || el.videoWidth
+    const h = el.naturalHeight || el.videoHeight
+    if (w && h) setAspect(w / h)
   }
+
+  const hasVerticalLetterbox = aspect != null && slideAspect != null && aspect > slideAspect
+
   return (
-    <img
-      key={url}
-      src={url}
-      alt=""
-      onError={onError}
-      className="tv-slide-media"
-    />
+    <div
+      ref={wrapperRef}
+      className="tv-slide-content"
+      style={aspect ? { aspectRatio: String(aspect) } : undefined}
+    >
+      {type === 'video' ? (
+        <video
+          key={url}
+          ref={videoRef}
+          src={url}
+          muted
+          playsInline
+          preload="auto"
+          onLoadedMetadata={captureAspect}
+          onEnded={onEnded}
+          onError={onError}
+          className="tv-slide-media"
+        />
+      ) : (
+        <img
+          key={url}
+          ref={imgRef}
+          src={url}
+          alt=""
+          onLoad={captureAspect}
+          onError={onError}
+          className="tv-slide-media"
+        />
+      )}
+      <TextOverlay item={item} hasVerticalLetterbox={hasVerticalLetterbox} />
+    </div>
   )
 }
 
@@ -204,11 +265,13 @@ export default function TvSlideshow() {
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
-    fetch('/tv-media.json', { cache: 'no-store' })
-      .then((r) => {
+    const loadJson = (url) =>
+      fetch(url, { cache: 'no-store' }).then((r) => {
         if (!r.ok) throw new Error('http ' + r.status)
         return r.json()
       })
+    loadJson('/api/tv/media')
+      .catch(() => loadJson('/tv-media_backup.json'))
       .then(setData)
       .catch(() => setFailed(true))
   }, [])

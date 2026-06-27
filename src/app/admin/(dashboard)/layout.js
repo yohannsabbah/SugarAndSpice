@@ -41,6 +41,7 @@ export default async function DashboardLayout({ children }) {
         <NavLink href="/admin/wolt">Wolt</NavLink>
         <NavLink href="/admin/expenses">Expenses</NavLink>
         <NavLink href="/admin/finance">Finance</NavLink>
+        <NavLink href="/admin/tv">TV</NavLink>
       </nav>
       <AdminMonthPickerSlot />
       {children}
