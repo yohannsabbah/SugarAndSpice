@@ -9,7 +9,7 @@ frontend:
         # Bake server env vars into .env.production so they reach the SSR runtime.
         # Amplify exposes console env vars to the build process, but not always to
         # the Next.js SSR Lambda — this ensures process.env.X works at request time.
-        - env | grep -E "^(SUPABASE_URL|SUPABASE_KEY|ADMIN_PASSWORD)=" >> .env.production
+        - env | grep -E "^(SUPABASE_URL|SUPABASE_KEY|ADMIN_PASSWORD|TV_S3_BUCKET|TV_S3_ACCESS_KEY_ID|TV_S3_SECRET_ACCESS_KEY)=" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
