@@ -4,7 +4,14 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import MonthPicker from './MonthPicker'
 
 // Show the month picker only on pages that actually filter by ?month=
-const PATHS_WITH_MONTH = ['/admin', '/admin/wolt', '/admin/nayax', '/admin/finance', '/admin/expenses']
+const PATHS_WITH_MONTH = [
+  '/admin',
+  '/admin/wolt',
+  '/admin/nayax',
+  '/admin/finance',
+  '/admin/expenses',
+  '/admin/shifts',
+]
 
 export default function AdminMonthPickerSlot() {
   const pathname = usePathname()

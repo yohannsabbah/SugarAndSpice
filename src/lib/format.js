@@ -25,14 +25,27 @@ export function formatDate(iso) {
   })
 }
 
-export function formatDuration(startIso, endIso) {
-  if (!startIso) return '—'
+export function shiftDurationMs(startIso, endIso) {
+  if (!startIso) return 0
   const start = new Date(startIso).getTime()
   const end = endIso ? new Date(endIso).getTime() : Date.now()
-  let ms = Math.max(0, end - start)
+  return Math.max(0, end - start)
+}
+
+export function formatDuration(startIso, endIso) {
+  if (!startIso) return '—'
+  let ms = shiftDurationMs(startIso, endIso)
   const hours = Math.floor(ms / 3_600_000)
   ms -= hours * 3_600_000
   const minutes = Math.floor(ms / 60_000)
+  return `${hours}h ${minutes.toString().padStart(2, '0')}m`
+}
+
+export function formatDurationFromMs(ms) {
+  let remaining = Math.max(0, ms)
+  const hours = Math.floor(remaining / 3_600_000)
+  remaining -= hours * 3_600_000
+  const minutes = Math.floor(remaining / 60_000)
   return `${hours}h ${minutes.toString().padStart(2, '0')}m`
 }
 

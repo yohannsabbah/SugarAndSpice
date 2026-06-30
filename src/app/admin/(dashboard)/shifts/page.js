@@ -1,15 +1,121 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   formatDate,
   formatDateTime,
   formatDuration,
+  formatDurationFromMs,
   fromLocalInputValue,
+  shiftDurationMs,
   toLocalInputValue,
 } from '@/lib/format'
+import {
+  getShiftOpeningIssues,
+  isShiftOutsideOpeningHours,
+  openingHoursSchedule,
+  totalOpeningMsInMonth,
+} from '@/lib/openingHours'
+
+const ILSp = new Intl.NumberFormat('en-IL', {
+  style: 'currency',
+  currency: 'ILS',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const DEFAULT_HOURLY_RATE = 35
+const IRA_HOURLY_RATE = 50
+const HIGHLIGHT_ORANGE = '#ffedd5'
+const HIGHLIGHT_YELLOW = '#fef9c3'
+const HIGHLIGHT_RED = '#fde8e8'
+
+function isIra(name) {
+  return name?.trim().toLowerCase() === 'ira'
+}
+
+function isJenny(name) {
+  return name?.trim().toLowerCase() === 'jenny'
+}
+
+function currentMonthYm() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabelOf(month) {
+  return new Date(`${month}-01`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })
+}
+
+function monthRange(ym) {
+  const [y, m] = ym.split('-').map(Number)
+  return {
+    from: new Date(y, m - 1, 1).toISOString(),
+    to: new Date(y, m, 0, 23, 59, 59, 999).toISOString(),
+  }
+}
+
+function hourlyRateFor(name) {
+  return isIra(name) ? IRA_HOURLY_RATE : DEFAULT_HOURLY_RATE
+}
+
+function shiftRowStyle(startedAt, endedAt) {
+  const hours = shiftDurationMs(startedAt, endedAt) / 3_600_000
+  if (hours > 8) return { background: HIGHLIGHT_RED }
+  if (hours > 7) return { background: HIGHLIGHT_YELLOW }
+  if (isShiftOutsideOpeningHours(startedAt, endedAt)) return { background: HIGHLIGHT_ORANGE }
+  return undefined
+}
+
+function shiftRowTitle(startedAt, endedAt) {
+  const issues = []
+  const hours = shiftDurationMs(startedAt, endedAt) / 3_600_000
+  if (hours > 8) issues.push('Shift longer than 8 hours')
+  else if (hours > 7) issues.push('Shift longer than 7 hours')
+  issues.push(...getShiftOpeningIssues(startedAt, endedAt))
+  return issues.length ? issues.join(' · ') : undefined
+}
+
+function ShiftHighlightLegend() {
+  const items = [
+    { color: HIGHLIGHT_ORANGE, label: 'Outside opening hours' },
+    { color: HIGHLIGHT_YELLOW, label: 'Longer than 7 hours' },
+    { color: HIGHLIGHT_RED, label: 'Longer than 8 hours' },
+  ]
+
+  return (
+    <div
+      className="row"
+      style={{ gap: 20, marginTop: 16, flexWrap: 'wrap', fontSize: '0.85rem' }}
+    >
+      {items.map(({ color, label }) => (
+        <div key={label} className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 4,
+              background: color,
+              border: '1px solid var(--border)',
+              flexShrink: 0,
+            }}
+          />
+          <span className="muted">{label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function ShiftsAdminPage() {
+  const searchParams = useSearchParams()
+  const selectedMonth = useMemo(() => {
+    const month = searchParams.get('month')
+    return month && /^\d{4}-\d{2}$/.test(month) ? month : currentMonthYm()
+  }, [searchParams])
+  const monthLabel = useMemo(() => monthLabelOf(selectedMonth), [selectedMonth])
+
   const [shifts, setShifts] = useState([])
   const [employees, setEmployees] = useState([])
   const [filterEmployeeId, setFilterEmployeeId] = useState('')
@@ -18,12 +124,82 @@ export default function ShiftsAdminPage() {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
 
+  const monthOpeningMs = useMemo(() => totalOpeningMsInMonth(selectedMonth), [selectedMonth])
+
+  const summary = useMemo(() => {
+    const byEmployee = new Map()
+    for (const shift of shifts) {
+      const name = shift.employees?.name || 'Unknown'
+
+      const entry = byEmployee.get(name) || {
+        name,
+        shiftCount: 0,
+        durationMs: 0,
+        rate: hourlyRateFor(name),
+      }
+      entry.shiftCount += 1
+      entry.durationMs += shiftDurationMs(shift.started_at, shift.ended_at)
+      byEmployee.set(name, entry)
+    }
+
+    const useJennyRemainder = !filterEmployeeId
+    let jennyMs = null
+    if (useJennyRemainder) {
+      let othersMs = 0
+      for (const entry of byEmployee.values()) {
+        if (!isJenny(entry.name) && !isIra(entry.name)) othersMs += entry.durationMs
+      }
+      jennyMs = monthOpeningMs - othersMs
+    }
+
+    let rows = [...byEmployee.values()].map((row) => {
+      const durationMs = jennyMs !== null && isJenny(row.name) ? jennyMs : row.durationMs
+      const hours = durationMs / 3_600_000
+      return {
+        ...row,
+        durationMs,
+        hours,
+        pay: hours * row.rate,
+      }
+    })
+
+    if (jennyMs !== null && !rows.some((r) => isJenny(r.name))) {
+      const jennyName = employees.find((e) => isJenny(e.name))?.name
+      if (jennyName) {
+        const hours = jennyMs / 3_600_000
+        rows.push({
+          name: jennyName,
+          shiftCount: 0,
+          durationMs: jennyMs,
+          rate: hourlyRateFor(jennyName),
+          hours,
+          pay: hours * hourlyRateFor(jennyName),
+        })
+      }
+    }
+
+    rows = rows.sort((a, b) => a.name.localeCompare(b.name))
+
+    const totals = rows.reduce(
+      (acc, row) => ({
+        shiftCount: acc.shiftCount + row.shiftCount,
+        durationMs: acc.durationMs + row.durationMs,
+        pay: acc.pay + row.pay,
+      }),
+      { shiftCount: 0, durationMs: 0, pay: 0 },
+    )
+
+    return { rows, totals }
+  }, [shifts, monthOpeningMs, filterEmployeeId, employees])
+
   async function load() {
     setLoading(true)
     try {
-      const q = filterEmployeeId ? `?employee_id=${filterEmployeeId}` : ''
+      const { from, to } = monthRange(selectedMonth)
+      const params = new URLSearchParams({ from, to })
+      if (filterEmployeeId) params.set('employee_id', filterEmployeeId)
       const [shiftsRes, empRes] = await Promise.all([
-        fetch(`/api/shifts${q}`),
+        fetch(`/api/shifts?${params}`),
         fetch('/api/employees?all=1'),
       ])
       const sd = await shiftsRes.json()
@@ -42,7 +218,7 @@ export default function ShiftsAdminPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEmployeeId])
+  }, [filterEmployeeId, selectedMonth])
 
   async function handleDelete(shift) {
     if (!confirm(`Delete this shift for ${shift.employees?.name}?`)) return
@@ -113,7 +289,77 @@ export default function ShiftsAdminPage() {
       </div>
 
       <div className="card">
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>Shifts</h2>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8 }}>
+          Summary — {monthLabel}
+        </h2>
+        <p className="muted" style={{ marginBottom: 12, fontSize: '0.9rem' }}>
+          Scheduled shop hours:{' '}
+          <strong style={{ color: 'var(--brand-blue-dark)' }}>
+            {formatDurationFromMs(monthOpeningMs)}
+          </strong>
+          {' · '}
+          Jenny = scheduled hours minus other waiters (Ira excluded from the remainder)
+        </p>
+        <details style={{ marginBottom: 12, fontSize: '0.85rem' }}>
+          <summary className="muted" style={{ cursor: 'pointer' }}>
+            Opening hours
+          </summary>
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            {openingHoursSchedule().map(({ name, label }) => (
+              <li key={name}>
+                <strong>{name}</strong>: {label}
+              </li>
+            ))}
+          </ul>
+        </details>
+        {loading ? (
+          <div className="muted">Loading…</div>
+        ) : summary.rows.length === 0 ? (
+          <div className="muted">No shifts this month.</div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th style={{ textAlign: 'right' }}>Shifts</th>
+                <th style={{ textAlign: 'right' }}>Hours</th>
+                <th style={{ textAlign: 'right' }}>Rate</th>
+                <th style={{ textAlign: 'right' }}>Pay</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.rows.map((row) => {
+                const jenny = isJenny(row.name)
+                return (
+                  <tr key={row.name}>
+                    <td style={{ fontWeight: 600 }}>{row.name}</td>
+                    <td style={{ textAlign: 'right' }}>{row.shiftCount}</td>
+                    <td style={{ textAlign: 'right' }}>{formatDurationFromMs(row.durationMs)}</td>
+                    <td style={{ textAlign: 'right' }}>{ILSp.format(row.rate)}/h</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                      {jenny ? `(${ILSp.format(row.pay)})` : ILSp.format(row.pay)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={{ fontWeight: 700 }}>Total</td>
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>{summary.totals.shiftCount}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                  {formatDurationFromMs(summary.totals.durationMs)}
+                </td>
+                <td />
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>{ILSp.format(summary.totals.pay)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>Shifts — {monthLabel}</h2>
         {loading ? (
           <div className="muted">Loading…</div>
         ) : shifts.length === 0 ? (
@@ -133,9 +379,15 @@ export default function ShiftsAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {shifts.map((s) => (
-                <tr key={s.id}>
-                  <td style={{ fontWeight: 600 }}>{s.employees?.name || '—'}</td>
+              {shifts.map((s) => {
+                const name = s.employees?.name || '—'
+                return (
+                <tr
+                  key={s.id}
+                  style={shiftRowStyle(s.started_at, s.ended_at)}
+                  title={shiftRowTitle(s.started_at, s.ended_at)}
+                >
+                  <td style={{ fontWeight: 600 }}>{name}</td>
                   <td>{formatDate(s.started_at)}</td>
                   <td>{formatDateTime(s.started_at)}</td>
                   <td>
@@ -172,10 +424,12 @@ export default function ShiftsAdminPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}
+        {!loading && <ShiftHighlightLegend />}
       </div>
 
       {editing && (
