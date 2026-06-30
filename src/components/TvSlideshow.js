@@ -14,6 +14,9 @@ const ANIMATIONS = [
   'slide-down',
   'zoom-in',
   'zoom-out',
+  'blur',
+  'rotate',
+  'tilt',
 ]
 
 function pickAnim(prev) {
@@ -260,9 +263,28 @@ function Slideshow({ items, baseUrl }) {
   )
 }
 
+function isItemVisibleAt(item, date) {
+  if (item.hidden) return false
+  if (Array.isArray(item.days) && item.days.length > 0 && !item.days.includes(date.getDay())) {
+    return false
+  }
+  const hour = date.getHours()
+  const hs = typeof item.hourStart === 'number' ? item.hourStart : 0
+  const he = typeof item.hourEnd === 'number' ? item.hourEnd : 24
+  if (hour < hs || hour >= he) return false
+  return true
+}
+
 export default function TvSlideshow() {
   const [data, setData] = useState(null)
   const [failed, setFailed] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  const [previewIdx] = useState(() => {
+    if (typeof window === 'undefined') return null
+    const num = new URLSearchParams(window.location.search).get('num')
+    const parsed = num == null ? NaN : parseInt(num, 10)
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed - 1 : null
+  })
 
   useEffect(() => {
     const loadJson = (url) =>
@@ -276,11 +298,25 @@ export default function TvSlideshow() {
       .catch(() => setFailed(true))
   }, [])
 
-  if (failed || (data && (!data.items || data.items.length === 0))) {
+  useEffect(() => {
+    if (previewIdx != null) return
+    const id = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [previewIdx])
+
+  let visibleItems
+  if (previewIdx != null && data?.items?.[previewIdx]) {
+    visibleItems = [data.items[previewIdx]]
+  } else {
+    visibleItems = data?.items?.filter((it) => isItemVisibleAt(it, now)) ?? []
+  }
+
+  if (failed || (data && visibleItems.length === 0)) {
     return <img src="/logo.png" alt="Sugar & Spice" className="tv-logo" />
   }
   if (!data) {
     return null
   }
-  return <Slideshow items={data.items} baseUrl={data.baseUrl} />
+  const itemsKey = visibleItems.map((it) => it.url || it.file).join('|')
+  return <Slideshow key={itemsKey} items={visibleItems} baseUrl={data.baseUrl} />
 }

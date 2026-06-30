@@ -19,6 +19,15 @@ const POSITIONS = ['top', 'middle', 'bottom']
 const SIZES = ['small', 'medium', 'large']
 const ALIGNS = ['left', 'center', 'right']
 const COLOR_PRESETS = ['#ffffff', '#000000', '#e89bb0', '#5a9cc4', '#f5d76e']
+const DAYS = [
+  { v: 0, label: 'Sun' },
+  { v: 1, label: 'Mon' },
+  { v: 2, label: 'Tue' },
+  { v: 3, label: 'Wed' },
+  { v: 4, label: 'Thu' },
+  { v: 5, label: 'Fri' },
+  { v: 6, label: 'Sat' },
+]
 
 export default function TvAdminPage() {
   const [baseUrl, setBaseUrl] = useState('')
@@ -69,6 +78,12 @@ export default function TvAdminPage() {
           delete out.textStrip
           delete out.textOverflow
         }
+        if (!out.hidden) delete out.hidden
+        if (Array.isArray(out.days) && (out.days.length === 0 || out.days.length === DAYS.length)) {
+          delete out.days
+        }
+        if (out.hourStart == null || out.hourStart === 0) delete out.hourStart
+        if (out.hourEnd == null || out.hourEnd === 24) delete out.hourEnd
         return out
       })
       const res = await fetch('/api/tv/media', {
@@ -89,6 +104,22 @@ export default function TvAdminPage() {
 
   function updateItem(i, patch) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
+  }
+
+  function toggleDay(i, day) {
+    setItems((prev) =>
+      prev.map((it, idx) => {
+        if (idx !== i) return it
+        const current = Array.isArray(it.days) && it.days.length > 0 ? it.days : DAYS.map((d) => d.v)
+        const has = current.includes(day)
+        const next = has ? current.filter((d) => d !== day) : [...current, day].sort()
+        if (next.length === 0 || next.length === DAYS.length) {
+          const { days, ...rest } = it
+          return next.length === 0 ? { ...rest, days: [] } : rest
+        }
+        return { ...it, days: next }
+      }),
+    )
   }
 
   function clearText(i) {
@@ -262,8 +293,19 @@ export default function TvAdminPage() {
                   <div className="stack" style={{ gap: 8 }}>
                     <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                       <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600 }}>{item.file || item.url}</span>
+                        <span style={{ fontWeight: 600, opacity: item.hidden ? 0.5 : 1 }}>
+                          {item.file || item.url}
+                        </span>
                         <span className="badge">{type}</span>
+                        {item.hidden && <span className="badge" style={{ background: 'var(--brand-pink-bg)', color: 'var(--brand-pink-dark)' }}>Hidden</span>}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!item.hidden}
+                            onChange={(e) => updateItem(i, { hidden: e.target.checked })}
+                          />
+                          Hide
+                        </label>
                       </div>
                       <div className="row" style={{ gap: 6 }}>
                         <button
@@ -294,7 +336,7 @@ export default function TvAdminPage() {
                           style={{ padding: '4px 10px', fontSize: '0.8rem' }}
                           onClick={() => toggleExpanded(i)}
                         >
-                          {expanded.has(i) ? 'Hide' : item.text ? 'Edit text' : '+ Add text'}
+                          {expanded.has(i) ? 'Collapse' : 'Edit'}
                         </button>
                         <button
                           type="button"
@@ -416,6 +458,97 @@ export default function TvAdminPage() {
                         </button>
                       </div>
                     )}
+                    <fieldset
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        padding: '8px 12px 12px',
+                        margin: 0,
+                      }}
+                    >
+                      <legend className="muted" style={{ padding: '0 6px', fontSize: '0.8rem' }}>
+                        Schedule (leave open for always)
+                      </legend>
+                      <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {DAYS.map(({ v, label }) => {
+                          const active = !Array.isArray(item.days) || item.days.length === 0 || item.days.includes(v)
+                          return (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => toggleDay(i, v)}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.8rem',
+                                borderRadius: 999,
+                                border: '1px solid var(--border)',
+                                background: active ? 'var(--brand-blue)' : 'transparent',
+                                color: active ? '#fff' : 'var(--muted)',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                        <span className="muted" style={{ fontSize: '0.8rem' }}>From</span>
+                        <select
+                          className="input"
+                          style={{ width: 110 }}
+                          value={item.hourStart ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? undefined : Number(e.target.value)
+                            updateItem(i, { hourStart: v })
+                          }}
+                        >
+                          <option value="">always</option>
+                          {Array.from({ length: 24 }, (_, h) => (
+                            <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                          ))}
+                        </select>
+                        <span className="muted" style={{ fontSize: '0.8rem' }}>to</span>
+                        <select
+                          className="input"
+                          style={{ width: 110 }}
+                          value={item.hourEnd ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? undefined : Number(e.target.value)
+                            updateItem(i, { hourEnd: v })
+                          }}
+                        >
+                          <option value="">always</option>
+                          {Array.from({ length: 24 }, (_, i2) => {
+                            const h = i2 + 1
+                            return (
+                              <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                            )
+                          })}
+                        </select>
+                      </div>
+                    </fieldset>
+                    <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                      <a
+                        href={`/tv?num=${i + 1}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost"
+                        style={{ padding: '6px 18px', fontSize: '0.9rem' }}
+                      >
+                        Preview ↗
+                      </a>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '6px 18px', fontSize: '0.9rem' }}
+                        onClick={handleSave}
+                        disabled={saving}
+                      >
+                        {saving ? 'Saving…' : savedFlash ? 'Saved ✓' : 'Save'}
+                      </button>
+                    </div>
                       </>
                     )}
                   </div>
