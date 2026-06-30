@@ -181,11 +181,14 @@ export default function ShiftsAdminPage() {
     rows = rows.sort((a, b) => a.name.localeCompare(b.name))
 
     const totals = rows.reduce(
-      (acc, row) => ({
-        shiftCount: acc.shiftCount + row.shiftCount,
-        durationMs: acc.durationMs + row.durationMs,
-        pay: acc.pay + row.pay,
-      }),
+      (acc, row) => {
+        if (isJenny(row.name)) return acc
+        return {
+          shiftCount: acc.shiftCount + row.shiftCount,
+          durationMs: acc.durationMs + row.durationMs,
+          pay: acc.pay + row.pay,
+        }
+      },
       { shiftCount: 0, durationMs: 0, pay: 0 },
     )
 
