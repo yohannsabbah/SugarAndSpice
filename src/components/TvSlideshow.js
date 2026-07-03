@@ -204,6 +204,30 @@ function Slideshow({ items, baseUrl }) {
     }, TRANSITION_MS)
   }
 
+  const goPrev = () => {
+    if (advancingRef.current || len < 2) return
+    advancingRef.current = true
+    clearAllTimers()
+
+    const otherLane = currentLane === 'A' ? 'B' : 'A'
+    const currentIdx = lanes[currentLane].idx
+    const prevIdx = (currentIdx - 1 + len) % len
+
+    setLanes((prevLanes) => ({ ...prevLanes, [otherLane]: { idx: prevIdx } }))
+
+    const newAnim = pickAnim(lastAnimRef.current)
+    lastAnimRef.current = newAnim
+    setAnim(newAnim)
+    setTransitioning(true)
+
+    transitionTimerRef.current = setTimeout(() => {
+      setCurrentLane(otherLane)
+      setLanes((prevLanes) => ({ ...prevLanes, [currentLane]: { idx: (prevIdx - 1 + len) % len } }))
+      setTransitioning(false)
+      advancingRef.current = false
+    }, TRANSITION_MS)
+  }
+
   useEffect(() => () => clearAllTimers(), [])
 
   useEffect(() => {
@@ -219,6 +243,16 @@ function Slideshow({ items, baseUrl }) {
     imageTimerRef.current = setTimeout(advance, dur)
     return () => clearTimeout(imageTimerRef.current)
   }, [currentLane, transitioning, lanes, len, items])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') advance()
+      else if (e.key === 'ArrowLeft') goPrev()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLane, lanes, len])
 
   const aItem = items[lanes.A.idx]
   const bItem = items[lanes.B.idx]
