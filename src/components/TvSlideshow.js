@@ -75,11 +75,17 @@ function MediaElement({ item, baseUrl, isPlaying, onEnded, onError }) {
         videoRef.current.currentTime = 0
       } catch {}
       const p = videoRef.current.play()
-      if (p && typeof p.catch === 'function') p.catch(() => {})
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          // Autoplay was blocked — skip past this video instead of
+          // leaving the play-button placeholder frozen on screen.
+          onEnded?.()
+        })
+      }
     } else {
       videoRef.current.pause()
     }
-  }, [isPlaying, url, type])
+  }, [isPlaying, url, type, onEnded])
 
   useEffect(() => {
     const wrapper = wrapperRef.current
@@ -118,8 +124,11 @@ function MediaElement({ item, baseUrl, isPlaying, onEnded, onError }) {
           ref={videoRef}
           src={url}
           muted
+          autoPlay
           playsInline
           preload="auto"
+          controls={false}
+          disablePictureInPicture
           onLoadedMetadata={captureAspect}
           onEnded={onEnded}
           onError={onError}
