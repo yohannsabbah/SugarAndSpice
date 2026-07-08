@@ -321,6 +321,32 @@ export default function TvSlideshow() {
   })
 
   useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    let sentinel = null
+    let cancelled = false
+    const request = async () => {
+      try {
+        sentinel = await navigator.wakeLock.request('screen')
+        sentinel.addEventListener('release', () => {
+          sentinel = null
+        })
+      } catch {
+        // ignored — some devices reject or aren't allowed
+      }
+    }
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible' && !sentinel && !cancelled) request()
+    }
+    request()
+    document.addEventListener('visibilitychange', onVisChange)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisChange)
+      sentinel?.release?.().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
     const loadJson = (url) =>
       fetch(url, { cache: 'no-store' }).then((r) => {
         if (!r.ok) throw new Error('http ' + r.status)
