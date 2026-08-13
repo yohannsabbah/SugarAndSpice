@@ -185,7 +185,7 @@ export default async function WoltInsightsPage({ searchParams }) {
         </span>
       </div>
 
-      <UploadAndStatusCard periods={periods} />
+      <UploadAndStatusCard periods={periods} monthLabel={monthLabel} hasItemsCsv={topItems.length > 0} />
 
       {/* ── Executive summary: 4 boxes ─────────────────────────────── */}
       <div className="kpi-row">
@@ -418,9 +418,13 @@ function DataCompletenessTable({ periods }) {
   )
 }
 
-function UploadAndStatusCard({ periods }) {
-  const allComplete = periods.length > 0 && periods.every(periodFilesComplete)
+function UploadAndStatusCard({ periods, monthLabel, hasItemsCsv }) {
+  const allPeriodsComplete = periods.length > 0 && periods.every(periodFilesComplete)
+  const allComplete = allPeriodsComplete && hasItemsCsv
   const missingCount = periods.filter((p) => !periodFilesComplete(p)).length
+  const missingParts = []
+  if (missingCount > 0) missingParts.push(`${missingCount} period${missingCount > 1 ? 's' : ''} missing files`)
+  if (!hasItemsCsv) missingParts.push('items CSV missing')
   return (
     <details className="card" open={!allComplete}>
       <summary className="section-h2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -430,13 +434,19 @@ function UploadAndStatusCard({ periods }) {
             className="muted"
             style={{ fontSize: '0.8rem', fontWeight: 500, color: allComplete ? 'var(--success)' : 'var(--danger)' }}
           >
-            {allComplete ? '✓ all files received' : `⚠ ${missingCount} period${missingCount > 1 ? 's' : ''} missing files`}
+            {allComplete ? '✓ all files received' : `⚠ ${missingParts.join(', ')}`}
           </span>
         )}
       </summary>
       <div className="stack" style={{ gap: 16, marginTop: 12 }}>
         <UploadCard bare />
         <DataCompletenessTable periods={periods} />
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span style={{ color: hasItemsCsv ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+            {hasItemsCsv ? '✓' : '✗'}
+          </span>
+          <span>Items CSV — {monthLabel}</span>
+        </div>
       </div>
     </details>
   )
