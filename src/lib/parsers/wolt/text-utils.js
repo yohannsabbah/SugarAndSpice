@@ -1,4 +1,18 @@
 import { PDFParse } from 'pdf-parse'
+import { WorkerMessageHandler } from 'pdfjs-dist/legacy/build/pdf.worker.mjs'
+
+// pdf.js normally hands PDF parsing off to a Worker (browser) or, in Node,
+// dynamically imports its worker entry via a runtime path on
+// GlobalWorkerOptions.workerSrc as a "fake worker". That dynamic import
+// can't be traced by Next's server bundler (Turbopack), so it fails at
+// request time with "Cannot find module .../pdf.worker.mjs". Statically
+// importing the worker module ourselves and exposing it as
+// globalThis.pdfjsWorker makes pdf.js use it directly on the main thread
+// instead — this is pdf.js's own documented fallback for bundled/
+// serverless environments, and it's checked before the dynamic-import path.
+if (typeof globalThis.pdfjsWorker === 'undefined') {
+  globalThis.pdfjsWorker = { WorkerMessageHandler }
+}
 
 export async function pdfText(buffer) {
   const parser = new PDFParse({ data: buffer })
