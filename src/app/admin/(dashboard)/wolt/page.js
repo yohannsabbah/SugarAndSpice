@@ -35,6 +35,26 @@ function monthLabelOf(monthKey) {
   return new Date(`${monthKey}-01`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })
 }
 
+// Interpolates review scores (0..5) across the app's own red/amber/green
+// tokens — same hexes as --danger/--warning/--success in globals.css — so
+// the ramp matches the rest of the UI's semantic colors instead of
+// introducing new ones.
+const SCORE_RED = [0xc2, 0x45, 0x3b]   // --danger
+const SCORE_AMBER = [0xd4, 0x9b, 0x4a] // --warning
+const SCORE_GREEN = [0x5b, 0x9d, 0x6c] // --success
+
+function mixRgb(a, b, t) {
+  return a.map((v, i) => Math.round(v + (b[i] - v) * t))
+}
+
+function reviewScoreColor(score) {
+  const s = Math.max(0, Math.min(5, Number(score) || 0))
+  const [r, g, b] = s <= 2.5
+    ? mixRgb(SCORE_RED, SCORE_AMBER, s / 2.5)
+    : mixRgb(SCORE_AMBER, SCORE_GREEN, (s - 2.5) / 2.5)
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
 function rollupByMonth(allPeriods) {
   // Roll all Wolt billing cycles into calendar months. The half-month structure
   // is an implementation detail of how Wolt invoices us — the dashboard surfaces
@@ -368,7 +388,7 @@ export default async function WoltInsightsPage({ searchParams }) {
                 <tr key={r.order_no_public + r.placed_at}>
                   <td>{r.order_no_public}</td>
                   <td>{new Date(r.placed_at).toLocaleDateString('en-IL')}</td>
-                  <td className="num"><span className={r.review_score <= 2 ? 'warn-text' : ''}>{r.review_score}★</span></td>
+                  <td className="num"><span style={{ color: reviewScoreColor(r.review_score), fontWeight: 700 }}>{r.review_score}★</span></td>
                   <td>{r.review_comment || <span className="muted">—</span>}</td>
                   <td className="muted" style={{ fontSize: '0.8rem' }}>{r.review_attributions?.join(', ') || ''}</td>
                 </tr>
