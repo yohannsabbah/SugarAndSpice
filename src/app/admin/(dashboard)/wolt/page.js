@@ -6,6 +6,7 @@ import {
   getRecentLowReviews,
   getReviewBreakdownByMonth,
 } from '@/lib/db/wolt'
+import UploadCard from './UploadCard'
 import './wolt.css'
 
 export const dynamic = 'force-dynamic'
@@ -175,6 +176,8 @@ export default async function WoltInsightsPage({ searchParams }) {
           {totalMonths} month{totalMonths > 1 ? 's' : ''} of data loaded
         </span>
       </div>
+
+      <UploadCard />
 
       {/* ── Executive summary: 4 boxes ─────────────────────────────── */}
       <div className="kpi-row">
@@ -632,9 +635,12 @@ function TopItems({ items }) {
 
 function EmptyState() {
   return (
-    <div className="card">
-      <h2 className="section-h2">No Wolt data yet</h2>
-      <p className="muted">Run the backfill script (<code>scripts/backfill-wolt.mjs</code>) or upload a period.</p>
+    <div className="stack" style={{ gap: 20 }}>
+      <UploadCard />
+      <div className="card">
+        <h2 className="section-h2">No Wolt data yet</h2>
+        <p className="muted">Upload your Wolt files above to get started.</p>
+      </div>
     </div>
   )
 }

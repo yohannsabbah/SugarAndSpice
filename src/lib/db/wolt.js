@@ -89,6 +89,35 @@ export async function upsertWoltPeriod(period) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// wolt_periods — lookups used by the upload route to place documents that
+// don't carry their own dates (netting, purchases CSV grouping).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function findWoltPeriodByInvoiceNo({ woltInvoiceNo, merchantInvoiceNo }) {
+  if (!woltInvoiceNo && !merchantInvoiceNo) return null
+  const clauses = []
+  if (woltInvoiceNo) clauses.push(`wolt_invoice_no.eq.${woltInvoiceNo}`)
+  if (merchantInvoiceNo) clauses.push(`merchant_invoice_no.eq.${merchantInvoiceNo}`)
+  const { data, error } = await supabase
+    .from('wolt_periods')
+    .select('id, period_year, period_num')
+    .or(clauses.join(','))
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function findWoltPeriodId(periodYear, periodNum) {
+  const { data, error } = await supabase
+    .from('wolt_periods')
+    .select('id')
+    .eq('period_year', periodYear)
+    .eq('period_num', periodNum)
+    .maybeSingle()
+  if (error) throw error
+  return data?.id || null
+}
+
 function mergeNonNull(base, incoming) {
   const out = { ...base }
   for (const [k, v] of Object.entries(incoming)) {
