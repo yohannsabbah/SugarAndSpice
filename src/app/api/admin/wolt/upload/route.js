@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { isAdmin } from '@/lib/admin'
 import { classifyPdf, classifyCsv } from '@/lib/parsers/wolt/classify'
 import { periodNumForDate, periodDates } from '@/lib/parsers/wolt/period'
@@ -56,6 +57,11 @@ export async function POST(req) {
       results.push({ filename: file.filename, detected_type: file.type, status: 'error', detail: e.message })
     }
   }
+
+  // The Wolt page's data reads are cached indefinitely (see db/wolt.js) —
+  // this is what tells Next to recompute them on the next view instead of
+  // serving stale data forever.
+  revalidateTag('wolt-data')
 
   return NextResponse.json({ results })
 }

@@ -1,5 +1,13 @@
 import 'server-only'
+import { unstable_cache } from 'next/cache'
 import { supabase } from '@/lib/supabase'
+
+// Read functions consumed by the Wolt admin page are cached indefinitely
+// under the 'wolt-data' tag — nothing here changes except when the upload
+// route writes new data, so there's no reason to re-query Supabase on every
+// page view/reload. The upload route calls revalidateTag('wolt-data') after
+// processing files, which is the only thing that invalidates this.
+const WOLT_DATA_TAGS = ['wolt-data']
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Categorize item names (Hebrew + English) for the items catalog.
@@ -277,7 +285,12 @@ export async function getWoltPeriodWithFees(periodId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Read helpers for the Wolt insights dashboard
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getWoltPeriodSummaries() {
+export const getWoltPeriodSummaries = unstable_cache(
+  _getWoltPeriodSummaries,
+  ['wolt-period-summaries'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getWoltPeriodSummaries() {
   // For each period: the period row + fee aggregates by category +
   // order counts by channel/status + Wolt+ order count
   const [{ data: periods, error: e1 }, { data: fees, error: e2 }, { data: orders, error: e3 }] =
@@ -326,7 +339,12 @@ export async function getWoltPeriodSummaries() {
   })
 }
 
-export async function getTopItemsByMonth(monthStart, limit = 10) {
+export const getTopItemsByMonth = unstable_cache(
+  _getTopItemsByMonth,
+  ['wolt-top-items-by-month'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getTopItemsByMonth(monthStart, limit = 10) {
   const { data, error } = await supabase
     .from('wolt_period_items')
     .select('item_name, merchant_sku, units_sold, revenue_incl_vat, items(category)')
@@ -337,7 +355,12 @@ export async function getTopItemsByMonth(monthStart, limit = 10) {
   return data.map((r) => ({ ...r, category: r.items?.category || null }))
 }
 
-export async function getCategorySalesByMonth(monthStart) {
+export const getCategorySalesByMonth = unstable_cache(
+  _getCategorySalesByMonth,
+  ['wolt-category-sales-by-month'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getCategorySalesByMonth(monthStart) {
   // Sum revenue per category, joining wolt_period_items to items.
   const { data, error } = await supabase
     .from('wolt_period_items')
@@ -355,7 +378,12 @@ export async function getCategorySalesByMonth(monthStart) {
   return [...byCat.values()].sort((a, b) => b.revenue - a.revenue)
 }
 
-export async function getLastIpadDeduction() {
+export const getLastIpadDeduction = unstable_cache(
+  _getLastIpadDeduction,
+  ['wolt-last-ipad-deduction'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getLastIpadDeduction() {
   // Find the iPad lease row with the smallest remaining_after_payment.
   const { data, error } = await supabase
     .from('wolt_deductions')
@@ -366,7 +394,12 @@ export async function getLastIpadDeduction() {
   return data?.[0] || null
 }
 
-export async function getRecentReviews(monthStartISO, monthEndExclusiveISO) {
+export const getRecentReviews = unstable_cache(
+  _getRecentReviews,
+  ['wolt-recent-reviews'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getRecentReviews(monthStartISO, monthEndExclusiveISO) {
   const { data, error } = await supabase
     .from('wolt_orders')
     .select('order_no_public, placed_at, price_incl_vat, review_score, review_comment, review_attributions')
@@ -378,7 +411,12 @@ export async function getRecentReviews(monthStartISO, monthEndExclusiveISO) {
   return data
 }
 
-export async function getReviewBreakdownByMonth(monthStartISO, monthEndExclusiveISO) {
+export const getReviewBreakdownByMonth = unstable_cache(
+  _getReviewBreakdownByMonth,
+  ['wolt-review-breakdown-by-month'],
+  { tags: WOLT_DATA_TAGS }
+)
+async function _getReviewBreakdownByMonth(monthStartISO, monthEndExclusiveISO) {
   // Count orders with review scores in [monthStart, monthEndExclusive)
   // and bucket by score 1..5.
   const { data, error } = await supabase
