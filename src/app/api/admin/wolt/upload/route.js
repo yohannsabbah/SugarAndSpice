@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
 import { classifyPdf, classifyCsv } from '@/lib/parsers/wolt/classify'
-import { periodNumForDate } from '@/lib/parsers/wolt/period'
+import { periodNumForDate, periodDates } from '@/lib/parsers/wolt/period'
 import { parseCsvItems, parseCsvPurchases } from '@/lib/parsers/wolt'
 import {
   upsertWoltPeriod,
@@ -11,7 +11,6 @@ import {
   replaceWoltOrders,
   insertWoltOrderItems,
   findWoltPeriodByInvoiceNo,
-  findWoltPeriodId,
 } from '@/lib/db/wolt'
 
 const PDF_MAGIC = '%PDF-'
@@ -86,6 +85,7 @@ async function processW2m(w2m) {
     wolt_fees_excl_vat: w2m.totalExclVat,
     wolt_fees_vat: w2m.totalVat,
     wolt_fees_incl_vat: w2m.totalInclVat,
+    w2m_received_at: new Date().toISOString(),
   })
   await replaceWoltPeriodFees(periodId, w2m.fees.map((f) => ({
     fee_category: f.fee_category,
@@ -116,6 +116,7 @@ async function processM2w(m2w) {
     gross_sales_vat: m2w.grossSalesVat,
     gross_sales_incl_vat: m2w.grossSalesInclVat,
     refunds_incl_vat: m2w.refundsInclVat,
+    m2w_received_at: new Date().toISOString(),
   })
   return `Period ${year}-P${num} updated (gross sales ${m2w.grossSalesInclVat})`
 }
@@ -127,6 +128,7 @@ async function processSalesReport(sales) {
     period_year: year,
     period_num: num,
     merchant_invoice_no: sales.merchantInvoiceNo,
+    sales_report_received_at: new Date().toISOString(),
   })
   return `Period ${year}-P${num} confirmed (merchant invoice ${sales.merchantInvoiceNo || 'n/a'})`
 }
@@ -148,6 +150,7 @@ async function processNetting(net) {
     withholding_pct: net.withholdingPct,
     installments_amount,
     net_payout: net.netPayout,
+    netting_received_at: new Date().toISOString(),
   })
   await replaceWoltDeductions(period.id, net.deductions)
   return `Period ${period.period_year}-P${period.period_num} updated (net payout ${net.netPayout})`
@@ -176,13 +179,18 @@ async function processCsvPurchases(csvText) {
   }
 
   const summaries = []
-  let anyImported = false
   for (const { year, num, orders: pOrders } of byPeriod.values()) {
-    const periodId = await findWoltPeriodId(year, num)
-    if (!periodId) {
-      summaries.push(`period ${year}-P${num}: SKIPPED (${pOrders.length} orders, no matching period — upload its invoices first)`)
-      continue
-    }
+    // Upload order isn't guaranteed — this CSV may arrive before that
+    // period's PDFs. Create the period stub from the CSV's own order dates
+    // if needed; the PDFs (whenever they land) merge their financial data
+    // into the same row rather than overwriting these dates.
+    const { start, end } = periodDates(year, num)
+    const periodId = await upsertWoltPeriod({
+      period_year: year,
+      period_num: num,
+      period_start: start,
+      period_end: end,
+    })
     const orderRows = pOrders.map((o) => ({
       order_no_public: o.order_no_public,
       order_line_no: null,
@@ -203,10 +211,8 @@ async function processCsvPurchases(csvText) {
       const orderId = idByOrderNo.get(o.order_no_public)
       if (orderId && o.items?.length) await insertWoltOrderItems(orderId, o.items)
     }
-    anyImported = true
     summaries.push(`period ${year}-P${num}: ${orderRows.length} orders imported`)
   }
 
-  if (!anyImported) throw new Error(summaries.join('; '))
   return summaries.join('; ')
 }
