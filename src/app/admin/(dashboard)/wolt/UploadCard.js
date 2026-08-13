@@ -3,7 +3,9 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function UploadCard() {
+// bare: skip the outer card/heading — used when an ancestor (e.g. a
+// collapsible section combining upload + file-status) already provides them.
+export default function UploadCard({ bare = false }) {
   const router = useRouter()
   const [files, setFiles] = useState([])
   const [busy, setBusy] = useState(false)
@@ -43,13 +45,14 @@ export default function UploadCard() {
     }
   }
 
-  return (
-    <div className="card">
-      <h2 className="section-h2">Upload Wolt files</h2>
-      <p className="muted" style={{ fontSize: '0.85rem' }}>
-        Drop any mix of Wolt PDFs (invoices, netting, sales reports) and CSVs (items, purchases) —
-        any period, any order, any time. Each file is identified automatically.
-      </p>
+  const body = (
+    <>
+      {!bare && (
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          Drop any mix of Wolt PDFs (invoices, netting, sales reports) and CSVs (items, purchases) —
+          any period, any order, any time. Each file is identified automatically.
+        </p>
+      )}
       <form onSubmit={onSubmit} className="stack" style={{ gap: 12 }}>
         <input
           ref={inputRef}
@@ -79,6 +82,15 @@ export default function UploadCard() {
       )}
 
       {results && <ResultsList results={results} />}
+    </>
+  )
+
+  if (bare) return body
+
+  return (
+    <div className="card">
+      <h2 className="section-h2">Upload Wolt files</h2>
+      {body}
     </div>
   )
 }

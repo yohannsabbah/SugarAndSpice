@@ -185,7 +185,7 @@ export default async function WoltInsightsPage({ searchParams }) {
         </span>
       </div>
 
-      <UploadCard />
+      <UploadAndStatusCard periods={periods} />
 
       {/* ── Executive summary: 4 boxes ─────────────────────────────── */}
       <div className="kpi-row">
@@ -382,6 +382,74 @@ export default async function WoltInsightsPage({ searchParams }) {
 }
 
 // ── components ──────────────────────────────────────────────────────────────
+function periodFilesComplete(p) {
+  return !!(p.w2m_received_at && p.m2w_received_at && p.netting_received_at && p.sales_report_received_at && p.orders_total > 0)
+}
+
+function DataCompletenessTable({ periods }) {
+  if (!periods.length) return null
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th style={{ textAlign: 'center' }}>Wolt→Merchant</th>
+          <th style={{ textAlign: 'center' }}>Merchant→Wolt</th>
+          <th style={{ textAlign: 'center' }}>Netting</th>
+          <th style={{ textAlign: 'center' }}>Sales report</th>
+          <th style={{ textAlign: 'center' }}>Purchases CSV</th>
+        </tr>
+      </thead>
+      <tbody>
+        {periods.map((p) => (
+          <tr key={p.id}>
+            <td>
+              {new Date(p.period_start).toLocaleDateString('en-IL')} – {new Date(p.period_end).toLocaleDateString('en-IL')}
+            </td>
+            <FileStatusCell ok={!!p.w2m_received_at} />
+            <FileStatusCell ok={!!p.m2w_received_at} />
+            <FileStatusCell ok={!!p.netting_received_at} />
+            <FileStatusCell ok={!!p.sales_report_received_at} />
+            <FileStatusCell ok={p.orders_total > 0} />
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function UploadAndStatusCard({ periods }) {
+  const allComplete = periods.length > 0 && periods.every(periodFilesComplete)
+  const missingCount = periods.filter((p) => !periodFilesComplete(p)).length
+  return (
+    <details className="card" open={!allComplete}>
+      <summary className="section-h2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+        Upload & file status
+        {periods.length > 0 && (
+          <span
+            className="muted"
+            style={{ fontSize: '0.8rem', fontWeight: 500, color: allComplete ? 'var(--success)' : 'var(--danger)' }}
+          >
+            {allComplete ? '✓ all files received' : `⚠ ${missingCount} period${missingCount > 1 ? 's' : ''} missing files`}
+          </span>
+        )}
+      </summary>
+      <div className="stack" style={{ gap: 16, marginTop: 12 }}>
+        <UploadCard bare />
+        <DataCompletenessTable periods={periods} />
+      </div>
+    </details>
+  )
+}
+
+function FileStatusCell({ ok }) {
+  return (
+    <td style={{ textAlign: 'center' }}>
+      <span style={{ color: ok ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>{ok ? '✓' : '✗'}</span>
+    </td>
+  )
+}
+
 function KPI({ label, value, subtitle, delta, deltaSuffix = 'vs prev', tone }) {
   return (
     <div className={`card kpi ${tone || ''}`}>
