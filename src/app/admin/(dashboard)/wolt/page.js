@@ -91,9 +91,14 @@ export default async function WoltInsightsPage({ searchParams }) {
     return <EmptyState />
   }
 
-  // Default: if no month param, scope to the latest month present in data.
-  const latestPeriodAll = allPeriods[allPeriods.length - 1]
-  const selectedMonth = monthParam || latestPeriodAll.period_start.slice(0, 7) // "YYYY-MM"
+  // Default: if no month param, scope to the current calendar month — this
+  // matches AdminMonthPickerSlot/MonthPicker, which drop the ?month= param
+  // entirely for "this month" rather than passing it explicitly. Falling
+  // back to the latest month with data here would silently show a
+  // different month than what the picker displays as selected.
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const selectedMonth = monthParam || currentMonth // "YYYY-MM"
   const monthStart = `${selectedMonth}-01`
   const monthLabel = new Date(`${selectedMonth}-01`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })
 
