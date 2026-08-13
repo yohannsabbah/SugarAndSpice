@@ -87,6 +87,14 @@ create table if not exists wolt_periods (
 create index if not exists wolt_periods_dates_idx
   on wolt_periods (period_start, period_end);
 
+-- Tracks which of the 4 source PDFs have been received for this period, so
+-- the admin UI can show what's still missing. Set by the upload route each
+-- time that document type is successfully processed for this period.
+alter table wolt_periods add column if not exists w2m_received_at          timestamptz;
+alter table wolt_periods add column if not exists m2w_received_at          timestamptz;
+alter table wolt_periods add column if not exists netting_received_at     timestamptz;
+alter table wolt_periods add column if not exists sales_report_received_at timestamptz;
+
 
 ------------------------------------------------------------------------
 -- 3. wolt_period_fees — each fee line from the Wolt → Merchant invoice
