@@ -3,7 +3,7 @@ import {
   getTopItemsByMonth,
   getCategorySalesByMonth,
   getLastIpadDeduction,
-  getRecentLowReviews,
+  getRecentReviews,
   getReviewBreakdownByMonth,
 } from '@/lib/db/wolt'
 import UploadCard from './UploadCard'
@@ -81,10 +81,9 @@ export default async function WoltInsightsPage({ searchParams }) {
   const sp = await searchParams
   const monthParam = sp?.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : null
 
-  const [allPeriods, ipad, lowReviews] = await Promise.all([
+  const [allPeriods, ipad] = await Promise.all([
     getWoltPeriodSummaries(),
     getLastIpadDeduction(),
-    getRecentLowReviews(),
   ])
 
   if (allPeriods.length === 0) {
@@ -117,11 +116,12 @@ export default async function WoltInsightsPage({ searchParams }) {
   const { startISO: curStartISO, endExclusiveISO: curEndISO } = monthBoundsISO(selectedMonth)
   const { startISO: prvStartISO, endExclusiveISO: prvEndISO } = monthBoundsISO(prevMonth)
 
-  const [topItems, categoryItems, curReviews, prvReviews] = await Promise.all([
+  const [topItems, categoryItems, curReviews, prvReviews, recentReviews] = await Promise.all([
     getTopItemsByMonth(monthStart, 10),
     getCategorySalesByMonth(monthStart),
     getReviewBreakdownByMonth(curStartISO, curEndISO),
     getReviewBreakdownByMonth(prvStartISO, prvEndISO),
+    getRecentReviews(curStartISO, curEndISO),
   ])
 
   // Headline period = latest period in the selected month; previous period for KPIs
@@ -133,9 +133,12 @@ export default async function WoltInsightsPage({ searchParams }) {
 
   if (!latest) {
     return (
-      <div className="card">
-        <h2 className="section-h2">No Wolt data for {monthLabel}</h2>
-        <p className="muted">Try selecting a different month above, or upload this month&apos;s Wolt packet.</p>
+      <div className="stack" style={{ gap: 20 }}>
+        <UploadCard />
+        <div className="card">
+          <h2 className="section-h2">No Wolt data for {monthLabel}</h2>
+          <p className="muted">Upload this month&apos;s Wolt packet above, or try selecting a different month.</p>
+        </div>
       </div>
     )
   }
@@ -352,16 +355,16 @@ export default async function WoltInsightsPage({ searchParams }) {
         </div>
       </div>
 
-      {/* ── Recent low reviews ────────────────────────────────────── */}
-      {lowReviews.length > 0 && (
+      {/* ── Recent reviews ──────────────────────────────────────────── */}
+      {recentReviews.length > 0 && (
         <div className="card">
-          <h2 className="section-h2">Recent low reviews (≤3 stars)</h2>
+          <h2 className="section-h2">Reviews — {monthLabel}</h2>
           <table className="table">
             <thead>
               <tr><th>Order</th><th>When</th><th style={{ textAlign: 'right' }}>Score</th><th>Comment</th><th>Tags</th></tr>
             </thead>
             <tbody>
-              {lowReviews.map((r) => (
+              {recentReviews.map((r) => (
                 <tr key={r.order_no_public + r.placed_at}>
                   <td>{r.order_no_public}</td>
                   <td>{new Date(r.placed_at).toLocaleDateString('en-IL')}</td>

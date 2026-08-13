@@ -366,14 +366,14 @@ export async function getLastIpadDeduction() {
   return data?.[0] || null
 }
 
-export async function getRecentLowReviews(limit = 6) {
+export async function getRecentReviews(monthStartISO, monthEndExclusiveISO) {
   const { data, error } = await supabase
     .from('wolt_orders')
     .select('order_no_public, placed_at, price_incl_vat, review_score, review_comment, review_attributions')
     .not('review_score', 'is', null)
-    .lte('review_score', 3)
+    .gte('placed_at', monthStartISO)
+    .lt('placed_at', monthEndExclusiveISO)
     .order('placed_at', { ascending: false })
-    .limit(limit)
   if (error) throw error
   return data
 }
