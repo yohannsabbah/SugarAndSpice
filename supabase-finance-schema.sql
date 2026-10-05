@@ -552,3 +552,36 @@ create policy "expense_documents anon all" on expense_documents
 drop policy if exists "expenses anon all" on expenses;
 create policy "expenses anon all" on expenses
   for all using (true) with check (true);
+
+
+------------------------------------------------------------------------
+-- 17. bank_transactions — parsed from Bank Hapoalim PDF statement exports
+-- Flat and self-contained: no parent statement/document row, because one
+-- upload can span any date range and dedup is global by row hash.
+------------------------------------------------------------------------
+create table if not exists bank_transactions (
+  id                uuid primary key default gen_random_uuid(),
+  txn_date          date not null,
+  description       text not null,          -- raw, as printed in the statement
+  amount            numeric(12,2) not null, -- signed: + credit/inflow, - debit/outflow
+  balance_after     numeric(12,2),
+  category          text not null,
+  footnote_code     text,                   -- raw '1'/'2' marker from the source; meaning unestablished, unused
+  source_row_hash   text not null unique,   -- sha256(date|description|amount|balance_after), truncated
+  created_at        timestamptz not null default now()
+);
+
+create index if not exists bank_transactions_date_idx
+  on bank_transactions (txn_date);
+create index if not exists bank_transactions_category_idx
+  on bank_transactions (category);
+
+
+------------------------------------------------------------------------
+-- RLS for bank tables
+------------------------------------------------------------------------
+alter table bank_transactions enable row level security;
+
+drop policy if exists "bank_transactions anon all" on bank_transactions;
+create policy "bank_transactions anon all" on bank_transactions
+  for all using (true) with check (true);
