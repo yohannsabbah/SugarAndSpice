@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import BrandTitle from '@/components/BrandTitle'
+import ReceiptButton from '@/components/ReceiptButton'
 import { formatDuration, formatTime } from '@/lib/format'
-
-const STORAGE_KEY = 'ss_last_employee_id'
+import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
 
 export default function EmployeePage() {
   const [employees, setEmployees] = useState([])
@@ -21,7 +21,7 @@ export default function EmployeePage() {
   )
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(LAST_EMPLOYEE_KEY) : null
     fetch('/api/employees')
       .then((r) => r.json())
       .then((d) => {
@@ -39,7 +39,7 @@ export default function EmployeePage() {
       setOpenShift(null)
       return
     }
-    if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, employeeId)
+    if (typeof window !== 'undefined') localStorage.setItem(LAST_EMPLOYEE_KEY, employeeId)
     let cancelled = false
     fetch(`/api/shifts/open?employee_id=${employeeId}`)
       .then((r) => r.json())
@@ -107,7 +107,7 @@ export default function EmployeePage() {
     ) {
       return
     }
-    if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY)
+    if (typeof window !== 'undefined') localStorage.removeItem(LAST_EMPLOYEE_KEY)
     setEmployeeId('')
     setOpenShift(null)
     setError('')
@@ -115,22 +115,14 @@ export default function EmployeePage() {
 
   return (
     <div className="container" style={{ position: 'relative' }}>
-      {employeeId && !loading && (
-        <button
-          className="btn btn-ghost"
-          onClick={handleSwitchUser}
-          style={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            padding: '8px 14px',
-            fontSize: '0.85rem',
-            zIndex: 1,
-          }}
-        >
-          Switch user
-        </button>
-      )}
+      <div className="top-actions">
+        <ReceiptButton />
+        {employeeId && !loading && (
+          <button className="btn btn-ghost" onClick={handleSwitchUser}>
+            Switch user
+          </button>
+        )}
+      </div>
       <BrandTitle subtitle="employee shift" />
 
       <div className="card">

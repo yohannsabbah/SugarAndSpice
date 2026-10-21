@@ -198,6 +198,32 @@ textarea {
   width: 100%;
 }
 
+/* Top-right corner of the employee-facing screens: Receipt, Switch user. */
+.top-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  z-index: 1;
+}
+.top-actions .btn {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
+.receipt-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.receipt-button-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+
 .btn-lg {
   padding: 20px 24px;
   font-size: 1.125rem;
