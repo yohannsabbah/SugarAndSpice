@@ -1,26 +1,12 @@
 import 'server-only'
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3_REGION, s3Bucket, s3Client } from '@/lib/s3'
 
-export const TV_S3_REGION = 'us-east-1'
+export const TV_S3_REGION = S3_REGION
 export const TV_S3_KEY = 'tv/tv-media.json'
 
-export function tvS3Client() {
-  const accessKeyId = process.env.TV_S3_ACCESS_KEY_ID
-  const secretAccessKey = process.env.TV_S3_SECRET_ACCESS_KEY
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error('TV_S3_ACCESS_KEY_ID / TV_S3_SECRET_ACCESS_KEY are not configured')
-  }
-  return new S3Client({
-    region: TV_S3_REGION,
-    credentials: { accessKeyId, secretAccessKey },
-  })
-}
-
-function bucket() {
-  const Bucket = process.env.TV_S3_BUCKET
-  if (!Bucket) throw new Error('TV_S3_BUCKET is not configured')
-  return Bucket
-}
+export const tvS3Client = s3Client
+const bucket = s3Bucket
 
 export async function readTvMedia() {
   const c = tvS3Client()
