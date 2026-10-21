@@ -585,3 +585,63 @@ alter table bank_transactions enable row level security;
 drop policy if exists "bank_transactions anon all" on bank_transactions;
 create policy "bank_transactions anon all" on bank_transactions
   for all using (true) with check (true);
+
+
+------------------------------------------------------------------------
+-- 18. receipts — receipt photos captured from the employee screens
+-- One row per photo. The image lives in S3 under receipts/{MM}_{YYYY}/.
+-- Extracted fields stay null until the OCR step fills them; a blurred
+-- photo may never fill them, and the admin page corrects them by hand.
+------------------------------------------------------------------------
+create table if not exists receipts (
+  id                uuid primary key default gen_random_uuid(),
+
+  -- storage
+  s3_key            text not null,
+  file_name         text not null,
+  image_sha256      text not null unique,   -- blocks a double upload of one photo
+
+  -- provenance
+  uploaded_at       timestamptz not null default now(),
+  uploaded_by       uuid references employees(id) on delete set null,
+
+  -- extracted, all nullable: a blurred photo yields nothing
+  purchased_at      date,
+  vendor            text,
+  receipt_number    text,
+  total             numeric(12,2),
+  currency          text not null default 'ILS',
+
+  -- derived
+  vat_rate          numeric(5,4) not null default 0.18,
+  vat_amount        numeric(12,2),
+
+  -- lifecycle
+  parse_status      text not null default 'pending',  -- pending | parsed | error | reviewed
+  parse_error       text,
+  parsed_at         timestamptz,
+  reviewed_at       timestamptz,
+  ai_confidence     text,                             -- high | low
+  raw_extraction    jsonb,                            -- what the model returned, verbatim
+
+  notes             text,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+create index if not exists receipts_purchased_at_idx
+  on receipts (purchased_at);
+create index if not exists receipts_uploaded_at_idx
+  on receipts (uploaded_at);
+create index if not exists receipts_status_idx
+  on receipts (parse_status) where parse_status <> 'reviewed';
+
+
+------------------------------------------------------------------------
+-- RLS for receipts
+------------------------------------------------------------------------
+alter table receipts enable row level security;
+
+drop policy if exists "receipts anon all" on receipts;
+create policy "receipts anon all" on receipts
+  for all using (true) with check (true);
