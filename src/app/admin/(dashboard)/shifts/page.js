@@ -25,7 +25,7 @@ const ILSp = new Intl.NumberFormat('en-IL', {
   maximumFractionDigits: 2,
 })
 
-const DEFAULT_HOURLY_RATE = 35
+const DEFAULT_HOURLY_RATE = 35.4
 const IRA_HOURLY_RATE = 50
 const HIGHLIGHT_ORANGE = '#ffedd5'
 const HIGHLIGHT_YELLOW = '#fef9c3'
