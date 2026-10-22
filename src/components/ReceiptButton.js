@@ -100,14 +100,10 @@ export default function ReceiptButton() {
 
   return (
     <div className="receipt-button">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleChange}
-        hidden
-      />
+      {/* No `capture` attribute: with it, phones open the camera directly and
+          hide the photo library and files. Without it, iOS offers Take Photo /
+          Photo Library / Choose File, and Android offers Camera / Files. */}
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleChange} hidden />
       <button
         type="button"
         className="btn btn-ghost"

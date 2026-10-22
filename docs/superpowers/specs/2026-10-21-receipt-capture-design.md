@@ -98,8 +98,10 @@ wraps `/admin` and `/tv`, and the TV screen must not show it.
 The shift screen already has a "Switch user" button in its top-right corner. Place
 the two buttons side by side there. The exact arrangement is the builder's call.
 
-The button is a file input with `accept="image/*"` and `capture="environment"`. On a
-phone this offers the camera and the photo library. The employee does not need an
+The button is a file input with `accept="image/*"` and **no** `capture` attribute.
+The owner wants a choice between a new photo and an existing file. With `capture`,
+a phone opens the camera directly and hides that choice. Without it, iOS offers
+Take Photo, Photo Library, and Choose File, and Android offers Camera and Files. The employee does not need an
 open shift to use it.
 
 The employee sees nothing about receipts except this button and the result of an

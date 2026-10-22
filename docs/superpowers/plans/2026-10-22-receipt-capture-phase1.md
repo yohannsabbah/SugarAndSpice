@@ -368,7 +368,7 @@ git commit -m "Add receipt image downscale and hash helpers"
 
 - [ ] **Step 1: Build the component**
 
-A `'use client'` component. It holds a hidden `<input type="file" accept="image/*" capture="environment">` and a visible `btn btn-ghost` button that opens the input. The visible states are exactly:
+A `'use client'` component. It holds a hidden `<input type="file" accept="image/*">` with no `capture` attribute (the owner wants both camera and file options) and a visible `btn btn-ghost` button that opens the input. The visible states are exactly:
 
 | State | Label | Notes |
 |---|---|---|
