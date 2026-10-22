@@ -6,6 +6,10 @@ import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
 
 const DONE_MS = 2500
 
+// Short and fixed: it sits in the top corner beside the logo, and the
+// employee only needs to know the photo is not saved yet.
+const ERROR_TEXT = 'Not saved'
+
 const LABEL = {
   idle: '📷 Receipt',
   working: 'Uploading…',
@@ -57,7 +61,6 @@ async function uploadReceipt(file) {
 
 export default function ReceiptButton() {
   const [state, setState] = useState('idle')
-  const [error, setError] = useState('')
   const inputRef = useRef(null)
   const fileRef = useRef(null)
   const doneTimer = useRef(null)
@@ -66,14 +69,13 @@ export default function ReceiptButton() {
 
   async function run() {
     setState('working')
-    setError('')
     try {
       await uploadReceipt(fileRef.current)
       fileRef.current = null
       setState('done')
       doneTimer.current = setTimeout(() => setState('idle'), DONE_MS)
     } catch (e) {
-      setError(e.message === 'Failed to fetch' ? 'No connection' : e.message)
+      console.warn('Receipt upload failed:', e)
       setState('error')
     }
   }
@@ -114,7 +116,7 @@ export default function ReceiptButton() {
       >
         {LABEL[state]}
       </button>
-      {state === 'error' && <div className="receipt-button-error">{error}</div>}
+      {state === 'error' && <div className="receipt-button-error">{ERROR_TEXT}</div>}
     </div>
   )
 }

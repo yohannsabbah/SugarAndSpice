@@ -211,6 +211,7 @@ textarea {
 .top-actions .btn {
   padding: 8px 14px;
   font-size: 0.85rem;
+  line-height: 1.2; /* the camera emoji otherwise makes Receipt taller */
 }
 
 .receipt-button {
@@ -221,6 +222,7 @@ textarea {
 }
 .receipt-button-error {
   font-size: 0.75rem;
+  white-space: nowrap;
   color: var(--danger);
 }
 
