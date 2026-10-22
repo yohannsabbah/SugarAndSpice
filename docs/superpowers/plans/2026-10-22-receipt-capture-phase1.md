@@ -10,6 +10,23 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-21-receipt-capture-design.md` — Phase 1 only (sections 1 and 2, the `receipts` table, and the first two routes). No OCR. No admin page.
 
+## Revision — 2026-10-22: upload through the server
+
+The owner rejected the direct browser-to-S3 upload. This revision supersedes the
+plan text below wherever they disagree:
+
+- One route, `POST /api/receipts`, takes `multipart/form-data` fields `photo` (the
+  downscaled JPEG), `sha256`, `fileName`, and optional `employeeId`. It returns
+  `200 { id }` for a new photo **and** for a duplicate. It returns `400 { error }`
+  for a missing photo, a bad hash, a photo over 4 MB, or bytes that are not a JPEG.
+- `/api/receipts/upload-url` is deleted. There are no presigned URLs, no
+  `HeadObject` check, and no S3 CORS requirement. The server writes the object with
+  `PutObjectCommand`, then inserts the row.
+- `MAX_RECEIPT_BYTES` is 4 MB (Amplify request body limit). `isReceiptKey` and
+  `keyMatchesHash` are removed. `isJpeg(bytes)` is added.
+- Route verification: `scripts/verify/receipts-route.check.mjs` against
+  `npm run dev`. `RECEIPTS_DB=skip` runs only the validation cases.
+
 ## Global Constraints
 
 - Read `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md` before writing a route handler. This Next.js version has breaking changes (AGENTS.md).

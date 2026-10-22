@@ -17,17 +17,6 @@ const LABEL = {
   error: 'Try again',
 }
 
-async function postJson(url, body) {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const d = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(d.error || 'Upload failed')
-  return d
-}
-
 function lastEmployeeId() {
   try {
     return localStorage.getItem(LAST_EMPLOYEE_KEY)
@@ -36,27 +25,25 @@ function lastEmployeeId() {
   }
 }
 
-// The whole upload, from the picked file to the stored row. A duplicate photo
-// skips the upload; the employee sees "Done" either way.
+// The whole upload: one request to our server, which stores the photo in S3
+// and records it. A duplicate photo also comes back OK, so the employee sees
+// "Done" either way.
 async function uploadReceipt(file) {
   const sha256 = await sha256Hex(file)
-  const blob = await downscaleToJpeg(file)
-  const presign = await postJson('/api/receipts/upload-url', { sha256, size: blob.size })
-  if (presign.duplicate) return
+  const photo = await downscaleToJpeg(file)
 
-  const put = await fetch(presign.url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: blob,
-  })
-  if (!put.ok) throw new Error('Upload failed')
+  const form = new FormData()
+  form.append('photo', photo, 'receipt.jpg')
+  form.append('sha256', sha256)
+  form.append('fileName', file.name)
+  const employeeId = lastEmployeeId()
+  if (employeeId) form.append('employeeId', employeeId)
 
-  await postJson('/api/receipts', {
-    key: presign.key,
-    sha256,
-    fileName: file.name,
-    employeeId: lastEmployeeId(),
-  })
+  const r = await fetch('/api/receipts', { method: 'POST', body: form })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d.error || `Upload failed (${r.status})`)
+  }
 }
 
 export default function ReceiptButton() {

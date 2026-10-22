@@ -115,15 +115,17 @@ After the employee picks the image:
 2. The browser computes a SHA-256 of the **original** file with `crypto.subtle`.
    Hash the original, not the downscaled output, so the same photo picked twice from
    the library always produces the same hash.
-3. The browser asks the server for a presigned S3 PUT URL, sending the hash.
-   If a row with that hash exists, the server says so, and the browser skips to
-   step 7. The employee is not told it was a duplicate.
-4. The browser uploads directly to S3.
-5. The browser tells the server the upload finished.
-6. The server confirms the object exists with an S3 `HeadObject` call, then creates
-   the `receipts` row with status `pending`, then returns. This check enforces the
-   first anti-goal: the server never records a receipt it cannot see in S3.
-7. The employee sees **Done**. Nothing else: no thumbnail, no extracted numbers,
+3. The browser sends the downscaled JPEG, the hash, the original file name, and the
+   employee id to the server in **one** `multipart/form-data` request. The
+   browser never talks to S3. The owner chose this: no signed URLs reach the phone,
+   and the bucket needs no browser CORS rules.
+4. If a row with that hash exists, the server returns it, and nothing is written.
+   The employee is not told it was a duplicate.
+5. Otherwise the server checks that the bytes are a JPEG, writes the object to S3,
+   and only after S3 confirms the write creates the `receipts` row with status
+   `pending`. This order enforces the first anti-goal: the server never records a
+   receipt that is not stored.
+6. The employee sees **Done**. Nothing else: no thumbnail, no extracted numbers,
    no duplicate notice.
 
 If any step fails, the employee sees an error and a **Try again** button. The
@@ -133,10 +135,9 @@ selected image stays in memory, so a retry does not need a second photo.
 decodes HEIC into a canvas, so the downscale step also converts it to JPEG. Test
 this path on a real iPhone, because a desktop browser does not exercise it.
 
-**S3 CORS.** A direct browser PUT needs the bucket CORS rules to allow `PUT` from
-the app origin. The TV upload already does a browser PUT from the admin page, so the
-rules likely allow it. Confirm before testing, because the failure looks like a
-network error in the browser and says nothing about CORS.
+**Size cap.** The server rejects a photo above 4 MB. The request passes through an
+Amplify server function, which caps the request body near 6 MB. A downscaled
+receipt photo is about 300 KB, so the cap never affects a real receipt.
 
 The employee never waits for the AI. Extraction runs after the response.
 
@@ -156,7 +157,7 @@ receipts/{MM}_{YYYY}/{timestamp}-{slug}.jpg
 ```
 
 `MM` and `YYYY` come from the **upload** date, because the purchase date is unknown
-at the moment the presigned URL is issued.
+at upload time.
 
 **The folder is not the authority.** The `receipts` table decides which month a
 receipt belongs to, using the purchase date the AI read. A receipt bought on
@@ -353,8 +354,7 @@ returns the existing row instead of creating a new one. The employee still sees
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/api/receipts/upload-url` | POST | Check the hash for a duplicate. Issue a presigned PUT URL. Public, like the shift routes. |
-| `/api/receipts` | POST | Verify the object with `HeadObject`. Create the row. |
+| `/api/receipts` | POST | Receive the photo (multipart). Skip a duplicate. Write to S3. Create the row. Public, like the shift routes. |
 | `/api/receipts/[id]/extract` | POST | Run the AI. Called after create and on manual retry. |
 | `/api/admin/receipts/[id]` | PATCH, DELETE | Edit or delete a row. Admin only. |
 | `/api/admin/receipts/export.csv` | GET | The month's CSV. Admin only. |

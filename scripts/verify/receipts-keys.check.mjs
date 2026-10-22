@@ -1,8 +1,8 @@
 import {
   receiptS3Key,
   isSha256,
-  isReceiptKey,
-  keyMatchesHash,
+  isJpeg,
+  MAX_RECEIPT_BYTES,
 } from '../../src/lib/receipts/keys.js'
 
 const H = 'ab'.repeat(32)
@@ -18,13 +18,12 @@ const cases = [
   ['sha rejects uppercase', isSha256(H.toUpperCase()), false],
   ['sha rejects 63 chars', isSha256(H.slice(1)), false],
   ['sha rejects undefined', isSha256(undefined), false],
-  // isReceiptKey
-  ['key valid', isReceiptKey('receipts/10_2026/1760000000000-abababab.jpg'), true],
-  ['key rejects traversal', isReceiptKey('receipts/10_2026/../tv/tv-media.json'), false],
-  ['key rejects other prefix', isReceiptKey('tv/1760000000000-abababab.jpg'), false],
-  // keyMatchesHash
-  ['hash matches key', keyMatchesHash('receipts/10_2026/1-abababab.jpg', H), true],
-  ['hash mismatch', keyMatchesHash('receipts/10_2026/1-cdcdcdcd.jpg', H), false],
+  // isJpeg — checks the bytes, not the declared type
+  ['jpeg magic bytes', isJpeg(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0])), true],
+  ['png is not jpeg', isJpeg(new Uint8Array([0x89, 0x50, 0x4e, 0x47])), false],
+  ['too short', isJpeg(new Uint8Array([0xff, 0xd8])), false],
+  // cap stays under the Amplify request body limit
+  ['size cap is 4 MB', MAX_RECEIPT_BYTES, 4 * 1024 * 1024],
 ]
 
 let failed = 0

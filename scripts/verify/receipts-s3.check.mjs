@@ -1,16 +1,14 @@
-// Proves the S3 credentials can write and read under receipts/, and that a
-// presigned PUT enforces its signed ContentLength.
+// Proves the S3 credentials can write, read, and delete under receipts/.
+// The receipts route writes with these same credentials.
 //
 // Usage: node --env-file=.env.local --import ./scripts/verify/alias-loader.mjs scripts/verify/receipts-s3.check.mjs
 import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client, s3Bucket } from '@/lib/s3'
 
 const client = s3Client()
 const Bucket = s3Bucket()
 const stamp = Date.now()
 const directKey = `receipts/00_0000/verify-${stamp}.txt`
-const presignKey = `receipts/00_0000/verify-${stamp}-presigned.jpg`
 
 function fail(step, reason) {
   console.error(`FAIL ${step}: ${reason}`)
@@ -30,32 +28,7 @@ try {
   fail('2 head', `${e.name}: ${e.message}`)
 }
 
-const presign = () =>
-  getSignedUrl(
-    client,
-    new PutObjectCommand({ Bucket, Key: presignKey, ContentType: 'image/jpeg', ContentLength: 3 }),
-    { expiresIn: 60 },
-  )
-
-{
-  const res = await fetch(await presign(), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: 'abc',
-  })
-  if (!res.ok) fail('3 presigned put', `HTTP ${res.status} ${await res.text()}`)
-}
-
-{
-  const res = await fetch(await presign(), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: 'abcd',
-  })
-  if (res.ok) fail('4 size cap', 'a 4-byte body was accepted by a URL signed for 3 bytes')
-}
-
-for (const Key of [directKey, presignKey]) {
+for (const Key of [directKey]) {
   try {
     await client.send(new DeleteObjectCommand({ Bucket, Key }))
   } catch (e) {
@@ -63,7 +36,7 @@ for (const Key of [directKey, presignKey]) {
       console.warn('WARN: no DeleteObject permission — remove receipts/00_0000/ by hand')
       break
     }
-    fail('5 delete', `${e.name}: ${e.message}`)
+    fail('3 delete', `${e.name}: ${e.message}`)
   }
 }
 

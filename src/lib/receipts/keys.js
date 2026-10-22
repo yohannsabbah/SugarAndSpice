@@ -1,10 +1,11 @@
-// Receipt S3 keys and hash checks, shared by the upload routes.
+// Receipt S3 keys and upload checks for the receipts route.
 // Kept free of server-only imports so plain Node verify scripts can load it.
 
-export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+// The photo travels through our server function, and Amplify caps the request
+// body near 6 MB. A downscaled receipt photo is about 300 KB.
+export const MAX_RECEIPT_BYTES = 4 * 1024 * 1024
 
 const SHA256_RE = /^[0-9a-f]{64}$/
-const KEY_RE = /^receipts\/\d{2}_\d{4}\/\d+-[0-9a-f]{8}\.jpg$/
 
 // The folder month is the upload month in Israel. The server runs in UTC,
 // so a photo taken just after midnight on the 1st would otherwise land in
@@ -24,10 +25,7 @@ export function isSha256(value) {
   return typeof value === 'string' && SHA256_RE.test(value)
 }
 
-export function isReceiptKey(value) {
-  return typeof value === 'string' && KEY_RE.test(value)
-}
-
-export function keyMatchesHash(key, sha256) {
-  return key.slice(-12, -4) === sha256.slice(0, 8)
+// The route is public, so check the bytes rather than trust the declared type.
+export function isJpeg(bytes) {
+  return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
 }
