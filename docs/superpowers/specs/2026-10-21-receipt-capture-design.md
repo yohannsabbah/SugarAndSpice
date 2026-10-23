@@ -31,6 +31,40 @@ Phase 1 is the only one that changes employee behavior, so it delivers value fir
 the photos stop going to WhatsApp. Phases 2 and 3 can then process every receipt
 captured since phase 1 shipped.
 
+## Amendments — 2026-10-23 (before Phases 2 and 3)
+
+These come from the first real iPhone test and the owner's decisions. They
+supersede the sections below wherever they disagree.
+
+1. **Build order.** Phase 3 (the admin page) is built before Phase 2 (extraction),
+   so the owner sees uploads in the table at once, with empty fields.
+2. **Duplicates, by the paper.** The owner uploaded one library photo twice. iOS
+   hands the browser different bytes on each pick, so the original-file hash
+   missed it. A second photo of the same paper also has different bytes. The
+   owner's rule: the same date, time, and amount mean the same receipt.
+   - After extraction, a receipt is a duplicate of an earlier one when
+     `purchased_at` and `total` match **and** either `purchased_time` matches or
+     `receipt_number` matches. When both time and number are missing, it is never
+     flagged: two ₪10.90 purchases at one shop on one day are real.
+   - A duplicate is **marked**, not deleted: `duplicate_of` points at the earlier
+     row. It stays visible on the admin page, greyed, and is excluded from the
+     CSV, the ZIP, and every total. The owner can clear the mark.
+3. **Duplicates, by the file.** The server computes the SHA-256 of the JPEG it
+   stores, instead of trusting the browser's hash of the original file. The two
+   iPhone picks produced byte-identical stored JPEGs, so this catches that case
+   before any extraction.
+4. **Receipt time.** Extraction also reads `purchased_time` (the time printed on
+   the receipt). New column `purchased_time time`.
+5. **When extraction runs.** The upload route schedules it with `after()` from
+   `next/server`. Amplify's support for work after the response is not documented,
+   so the admin page also extracts every `pending` row when it loads, a few at a
+   time, and offers a per-row **Retry**. Every receipt is processed at the latest
+   when the owner opens the page.
+6. **Reference receipt.** `IMG_9420.jpeg`, uploaded by the owner on 2026-10-23,
+   must extract as: vendor `גם סטוק נווה שאנן`, date `2026-10-21`, time
+   `20:23:38`, total `48.60`, receipt number `614461`. VAT at 18% is `7.41`,
+   which matches the VAT printed on the paper.
+
 ## Goals
 
 1. **Capture.** An employee photographs a receipt from the app in two taps. The
