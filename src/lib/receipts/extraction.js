@@ -2,8 +2,9 @@
 // answer. Pure: no SDK import, so the verify scripts can run it without a key.
 // processReceipt.js sends it through AnthropicBedrockMantle.
 
-// Claude Haiku 5.5 on Amazon Bedrock (the Messages-API "Mantle" endpoint).
-export const EXTRACTION_MODEL = 'anthropic.claude-haiku-5-5'
+// Claude Haiku 4.5 on Amazon Bedrock (the Messages-API "Mantle" endpoint).
+// Haiku 5.5 is gated on Bedrock and this AWS account has no access to it.
+export const EXTRACTION_MODEL = 'anthropic.claude-haiku-4-5'
 
 const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
 
@@ -34,8 +35,8 @@ export function buildExtractionRequest(jpegBase64) {
   return {
     model: EXTRACTION_MODEL,
     max_tokens: 2000,
+    // No `effort`: Claude Haiku 4.5 rejects it.
     output_config: {
-      effort: 'medium',
       format: { type: 'json_schema', schema: RECEIPT_SCHEMA },
     },
     messages: [
