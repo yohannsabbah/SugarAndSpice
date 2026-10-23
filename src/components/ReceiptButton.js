@@ -29,8 +29,16 @@ function lastEmployeeId() {
 // and records it. A duplicate photo also comes back OK, so the employee sees
 // "Done" either way.
 async function uploadReceipt(file) {
-  const sha256 = await sha256Hex(file)
-  const photo = await downscaleToJpeg(file)
+  let sha256, photo
+  try {
+    sha256 = await sha256Hex(file)
+    photo = await downscaleToJpeg(file)
+  } catch (e) {
+    // The file itself is unreadable (not an image, or discarded by the phone).
+    // Retrying the same file cannot succeed, so the caller drops it.
+    e.unreadableFile = true
+    throw e
+  }
 
   const form = new FormData()
   form.append('photo', photo, 'receipt.jpg')
@@ -63,6 +71,9 @@ export default function ReceiptButton() {
       doneTimer.current = setTimeout(() => setState('idle'), DONE_MS)
     } catch (e) {
       console.warn('Receipt upload failed:', e)
+      // Keep the file for a network retry. Drop an unreadable one, so the next
+      // tap opens the picker instead of failing the same way forever.
+      if (e.unreadableFile) fileRef.current = null
       setState('error')
     }
   }
