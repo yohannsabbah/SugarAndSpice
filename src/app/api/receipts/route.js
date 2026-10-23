@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { s3Bucket, s3Client } from '@/lib/s3'
-import { MAX_RECEIPT_BYTES, isJpeg, isSha256, receiptS3Key } from '@/lib/receipts/keys'
+import { MAX_RECEIPT_BYTES, isJpeg, receiptS3Key } from '@/lib/receipts/keys'
 import { createReceipt, findReceiptByHash } from '@/lib/db/receipts'
 import { getEmployee } from '@/lib/db/employees'
 
@@ -28,21 +29,23 @@ function badRequest(error) {
 //
 // multipart/form-data fields:
 //   photo       the downscaled JPEG
-//   sha256      hash of the ORIGINAL file, computed in the browser (dedup key)
 //   fileName    the original file name, for the admin page
 //   employeeId  optional
+//
+// The duplicate key is the SHA-256 of the JPEG we store, computed here. iOS
+// hands the browser different original bytes each time one library photo is
+// picked, but the browser's downscale of it comes out byte-identical.
 export async function POST(req) {
   const form = await req.formData().catch(() => null)
   if (!form) return badRequest('Expected multipart/form-data')
 
   const photo = form.get('photo')
-  const sha256 = form.get('sha256')
   if (!(photo instanceof Blob)) return badRequest('photo is required')
-  if (!isSha256(sha256)) return badRequest('sha256 must be 64 lowercase hex characters')
   if (photo.size > MAX_RECEIPT_BYTES) return badRequest('photo is too large')
 
   const bytes = new Uint8Array(await photo.arrayBuffer())
   if (!isJpeg(bytes)) return badRequest('photo must be a JPEG')
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
 
   try {
     // A second upload of the same photo is not an error for the employee.
