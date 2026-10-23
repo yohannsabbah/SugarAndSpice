@@ -1,8 +1,9 @@
 // The Claude request that reads a receipt photo, and the parser for its
 // answer. Pure: no SDK import, so the verify scripts can run it without a key.
-// processReceipt.js sends the request with the Anthropic SDK.
+// processReceipt.js sends it through AnthropicBedrockMantle.
 
-export const EXTRACTION_MODEL = 'claude-haiku-5-5'
+// Claude Haiku 5.5 on Amazon Bedrock (the Messages-API "Mantle" endpoint).
+export const EXTRACTION_MODEL = 'anthropic.claude-haiku-5-5'
 
 const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
 

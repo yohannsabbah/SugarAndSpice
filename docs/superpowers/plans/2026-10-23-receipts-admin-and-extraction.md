@@ -10,6 +10,26 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-21-receipt-capture-design.md` — sections 3–6, the Data model, and the **Amendments — 2026-10-23** section, which wins where they disagree.
 
+## Revision — 2026-10-23: Claude through Amazon Bedrock
+
+The owner chose Bedrock over the Anthropic API, to keep the cost on the AWS bill.
+This supersedes the plan text below wherever they disagree.
+
+- Packages: `@anthropic-ai/sdk@0.132.1` and `@anthropic-ai/bedrock-sdk@0.34.4`
+  (both published before 2026-10-09; the Bedrock package needs `@anthropic-ai/sdk`
+  `>=0.115.1 <1`).
+- Client: `import { AnthropicBedrockMantle } from '@anthropic-ai/bedrock-sdk'`,
+  `new AnthropicBedrockMantle({ awsRegion, awsAccessKey, awsSecretAccessKey })`.
+  The option is `awsSecretAccessKey` (from the package's `mantle-client.d.ts`), not
+  the legacy client's `awsSecretKey`.
+- Model ID: `anthropic.claude-haiku-5-5`. The request body is unchanged.
+- Environment: `BEDROCK_AWS_ACCESS_KEY_ID`, `BEDROCK_AWS_SECRET_ACCESS_KEY`,
+  `BEDROCK_AWS_REGION` (default `us-east-1`). The `AWS_` prefix is avoided, because
+  Amplify reserves it. These replace `ANTHROPIC_API_KEY` everywhere in this plan.
+- AWS setup (owner): enable Claude Haiku 5.5 under Bedrock → Model access, and give
+  the user behind those keys `bedrock-mantle:CreateInference`.
+- Task 9's integration test skips when `BEDROCK_AWS_ACCESS_KEY_ID` is unset.
+
 ## Global Constraints
 
 - Read the relevant guide in `node_modules/next/dist/docs/01-app/` before writing a route, page, or `after()` call (AGENTS.md). Route `params` are a Promise: `const { id } = await params`.

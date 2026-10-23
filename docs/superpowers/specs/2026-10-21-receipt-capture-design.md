@@ -60,6 +60,11 @@ supersede the sections below wherever they disagree.
    so the admin page also extracts every `pending` row when it loads, a few at a
    time, and offers a per-row **Retry**. Every receipt is processed at the latest
    when the owner opens the page.
+7. **Provider.** Extraction calls Claude Haiku 5.5 through Amazon Bedrock
+   (`anthropic.claude-haiku-5-5`, `AnthropicBedrockMantle`), billed to the shop's
+   AWS account, instead of the Anthropic API. Credentials come from
+   `BEDROCK_AWS_ACCESS_KEY_ID` / `BEDROCK_AWS_SECRET_ACCESS_KEY` /
+   `BEDROCK_AWS_REGION`.
 6. **Reference receipt.** `IMG_9420.jpeg`, uploaded by the owner on 2026-10-23,
    must extract as: vendor `גם סטוק נווה שאנן`, date `2026-10-21`, time
    `20:23:38`, total `48.60`, receipt number `614461`. VAT at 18% is `7.41`,
