@@ -10,6 +10,7 @@ const PATHS_WITH_MONTH = [
   '/admin/nayax',
   '/admin/finance',
   '/admin/expenses',
+  '/admin/receipts',
   '/admin/shifts',
 ]
 

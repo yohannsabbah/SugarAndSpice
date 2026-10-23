@@ -40,6 +40,7 @@ export default async function DashboardLayout({ children }) {
         <NavLink href="/admin/nayax">In-store</NavLink>
         <NavLink href="/admin/wolt">Wolt</NavLink>
         <NavLink href="/admin/expenses">Expenses</NavLink>
+        <NavLink href="/admin/receipts">Receipts</NavLink>
         <NavLink href="/admin/finance">Finance</NavLink>
         <NavLink href="/admin/tv">TV</NavLink>
       </nav>
