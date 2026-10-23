@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { downscaleToJpeg, sha256Hex } from '@/lib/receipts/prepareImage'
 import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
-
-const DONE_MS = 2500
 
 // Short and fixed: it sits in the top corner beside the logo, and the
 // employee only needs to know the photo is not saved yet.
@@ -58,9 +56,6 @@ export default function ReceiptButton() {
   const [state, setState] = useState('idle')
   const inputRef = useRef(null)
   const fileRef = useRef(null)
-  const doneTimer = useRef(null)
-
-  useEffect(() => () => clearTimeout(doneTimer.current), [])
 
   async function run() {
     setState('working')
@@ -68,7 +63,6 @@ export default function ReceiptButton() {
       await uploadReceipt(fileRef.current)
       fileRef.current = null
       setState('done')
-      doneTimer.current = setTimeout(() => setState('idle'), DONE_MS)
     } catch (e) {
       console.warn('Receipt upload failed:', e)
       // Keep the file for a network retry. Drop an unreadable one, so the next
@@ -91,7 +85,6 @@ export default function ReceiptButton() {
     // Clear so the same file can be picked again later.
     e.target.value = ''
     if (!file) return
-    clearTimeout(doneTimer.current)
     fileRef.current = file
     run()
   }
@@ -111,6 +104,25 @@ export default function ReceiptButton() {
         {LABEL[state]}
       </button>
       {state === 'error' && <div className="receipt-button-error">{ERROR_TEXT}</div>}
+      {state === 'done' && <DoneDialog onClose={() => setState('idle')} />}
+    </div>
+  )
+}
+
+// Stays until the employee taps OK, so they know the photo is safe before
+// they throw the paper away.
+function DoneDialog({ onClose }) {
+  return (
+    <div className="receipt-done-backdrop">
+      <div className="receipt-done-card" role="dialog" aria-modal="true" aria-labelledby="receipt-done-title">
+        <div className="receipt-done-check" aria-hidden="true">✓</div>
+        <div id="receipt-done-title" className="receipt-done-title">
+          Great, thanks for uploading!
+        </div>
+        <button type="button" className="btn btn-success btn-lg btn-block" onClick={onClose} autoFocus>
+          OK
+        </button>
+      </div>
     </div>
   )
 }
