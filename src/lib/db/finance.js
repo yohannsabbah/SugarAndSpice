@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { inferCategory } from './wolt.js'
 import { getMonthlyExpenseSummaries } from './expenses.js'
 import { getReceiptsByMonth } from './receipts.js'
+import { listRecurringExpenses, monthsCovered } from './recurringExpenses.js'
 import { hourlyRateFor, isJenny } from '@/lib/payroll'
 import { EXPENSE_VAT_RATE, VAT_RATE, withoutVat } from '@/lib/vat'
 import { shiftDurationMs } from '@/lib/format'
@@ -277,6 +278,7 @@ async function getMonthlyShiftPay() {
 //   month: 'YYYY-MM',
 //   store, wolt, expenses: { incl, excl, vat } | null,  // wolt = sales − Wolt fees
 //   expenses_receipts, // how much of `expenses` (with VAT) comes from receipt photos
+//   expenses_recurring, // how much of `expenses` comes from recurring expenses (rent…)
 //   wolt_total_sales, // Wolt "Total sales": with VAT, before fees and refunds | null
 //   wolt_periods,   // Wolt half-month periods with an uploaded invoice (0-2)
 //   salary,         // shift pay + 'salary' expenses (no VAT) | null
@@ -297,7 +299,7 @@ function addMoney(a, b) {
 }
 
 export async function getMonthlyOverview() {
-  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay, receipts] = await Promise.all([
+  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay, receipts, recurring] = await Promise.all([
     supabase
       .from('wolt_periods')
       .select('period_start, gross_sales_incl_vat, refunds_incl_vat, wolt_fees_incl_vat, wolt_fees_excl_vat'),
@@ -308,6 +310,7 @@ export async function getMonthlyOverview() {
     }),
     getMonthlyShiftPay(),
     getReceiptsByMonth(),
+    listRecurringExpenses(),
   ])
   if (e1) throw e1
   if (e2) throw e2
@@ -365,6 +368,19 @@ export async function getMonthlyOverview() {
     const r = row(month)
     r.expenses = addMoney(r.expenses, total)
     r.expenses_receipts = total.incl
+  }
+
+  // Recurring expenses (rent…) count in every month they cover, up to now.
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  for (const item of recurring) {
+    const amount = Number(item.amount)
+    const each = money(amount, item.includes_vat ? withoutVat(amount) : amount)
+    for (const month of monthsCovered(item, currentMonth)) {
+      const r = row(month)
+      r.expenses = addMoney(r.expenses, each)
+      r.expenses_recurring = (r.expenses_recurring || 0) + amount
+    }
   }
 
   for (const [month, pay] of shiftPay) {

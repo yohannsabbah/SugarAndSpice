@@ -1,6 +1,8 @@
 import { listExpenses, listPaymentMethods, EXPENSE_CATEGORIES, CATEGORY_LABEL } from '@/lib/db/expenses'
 import UploadCard from './UploadCard'
 import ManualEntryCard from './ManualEntryCard'
+import RecurringExpensesCard from './RecurringExpensesCard'
+import { getRecurringExpenses } from '@/lib/db/recurringExpenses'
 import ExpensesTable from './ExpensesTable'
 import '../wolt/wolt.css'
 import './expenses.css'
@@ -19,11 +21,12 @@ export default async function ExpensesPage({ searchParams }) {
   const sp = await searchParams
   const monthParam = sp?.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : null
 
-  let expenses, paymentMethods
+  let expenses, paymentMethods, recurring
   try {
-    [expenses, paymentMethods] = await Promise.all([
+    [expenses, paymentMethods, recurring] = await Promise.all([
       listExpenses({ month: monthParam || undefined }),
       listPaymentMethods(),
+      getRecurringExpenses(),
     ])
   } catch (err) {
     if (err.missingSchema) return <SchemaMissingState />
@@ -113,6 +116,12 @@ export default async function ExpensesPage({ searchParams }) {
           <p className="muted">No expenses yet for this period.</p>
         )}
       </div>
+
+      <RecurringExpensesCard
+        items={recurring.items}
+        tableMissing={recurring.tableMissing}
+        categories={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
+      />
 
       {/* ── Upload + manual entry ─────────────────────────────────────────── */}
       <div className="grid-2">

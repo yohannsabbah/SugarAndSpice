@@ -677,3 +677,31 @@ alter table receipts enable row level security;
 drop policy if exists "receipts anon all" on receipts;
 create policy "receipts anon all" on receipts
   for all using (true) with check (true);
+
+
+------------------------------------------------------------------------
+-- 19. recurring_expenses — a fixed amount that repeats every month
+-- (rent, insurance, subscriptions). Not stored as one row per month: the
+-- overview adds the amount to every month from start_month to end_month
+-- (or to the current month while end_month is null). To change the amount,
+-- set end_month on the old row and add a new row from the next month.
+------------------------------------------------------------------------
+create table if not exists recurring_expenses (
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null,                      -- 'Rent'
+  category        text not null,                      -- same values as expenses.category
+  amount          numeric(12,2) not null check (amount > 0),  -- what is paid each month (₪)
+  includes_vat    boolean not null default false,     -- true: amount includes reclaimable VAT
+  payment_method  text not null default 'transfer'
+                  check (payment_method in ('cheque', 'transfer', 'card', 'cash', 'standing_order', 'other')),
+  start_month     date not null check (extract(day from start_month) = 1),  -- first month, as YYYY-MM-01
+  end_month       date check (extract(day from end_month) = 1),             -- last month, null = still active
+  notes           text,
+  created_at      timestamptz not null default now(),
+  check (end_month is null or end_month >= start_month)
+);
+
+alter table recurring_expenses enable row level security;
+drop policy if exists "recurring_expenses anon all" on recurring_expenses;
+create policy "recurring_expenses anon all" on recurring_expenses
+  for all using (true) with check (true);
