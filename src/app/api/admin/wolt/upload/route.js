@@ -233,10 +233,12 @@ async function processCsvPurchases(csvText) {
     }))
     const inserted = await replaceWoltOrders(periodId, orderRows)
     const idByOrderNo = new Map(inserted.map((r) => [r.order_no_public, r.id]))
-    for (const o of pOrders) {
-      const orderId = idByOrderNo.get(o.order_no_public)
-      if (orderId && o.items?.length) await insertWoltOrderItems(orderId, o.items)
-    }
+    await insertWoltOrderItems(
+      pOrders.flatMap((o) => {
+        const orderId = idByOrderNo.get(o.order_no_public)
+        return orderId ? (o.items || []).map((item) => ({ orderId, item })) : []
+      }),
+    )
     summaries.push(`period ${year}-P${num}: ${orderRows.length} orders imported`)
   }
 

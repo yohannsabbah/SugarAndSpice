@@ -1,20 +1,5 @@
-import Link from 'next/link'
-import BrandTitle from '@/components/BrandTitle'
-import ReceiptButton from '@/components/ReceiptButton'
+import EmployeeApp from '@/components/EmployeeApp'
 
 export default function HomePage() {
-  return (
-    <div className="container home-layout" style={{ position: 'relative' }}>
-      <div className="top-actions">
-        <ReceiptButton />
-      </div>
-      <BrandTitle href={null} />
-      <div className="card stack">
-        <Link href="/employee" className="btn btn-pink btn-lg btn-block">
-          Start a shift
-        </Link>
-        <ReceiptButton variant="large" />
-      </div>
-    </div>
-  )
+  return <EmployeeApp />
 }

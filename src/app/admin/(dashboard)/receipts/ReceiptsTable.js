@@ -5,6 +5,7 @@ import { vatAmount } from '@/lib/receipts/money'
 import { needsCheck, sortReceipts } from '@/lib/receipts/sortReceipts'
 import { RECEIPT_CATEGORIES, categoryLabel } from '@/lib/receipts/categories'
 import ReceiptsSummary from './ReceiptsSummary'
+import PhotoViewer from './PhotoViewer'
 
 const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -17,6 +18,7 @@ function draftOf(r) {
     vendor: s(r.vendor),
     category: s(r.category),
     receipt_number: s(r.receipt_number),
+    uploaded_by: s(r.uploaded_by),
     total: r.total === null || r.total === undefined ? '' : Number(r.total).toFixed(2),
   }
 }
@@ -36,11 +38,12 @@ function changesOf(r, draft) {
 // Read-only table. Edit opens the inputs for one row, and Save sends the
 // changed fields through PATCH /api/admin/receipts/[id]. Duplicate adds a
 // second row on the same photo, for a photo that shows two receipts.
-export default function ReceiptsTable({ initial }) {
+export default function ReceiptsTable({ initial, employees }) {
   const [rows, setRows] = useState(() => sortReceipts(initial))
   const [savingId, setSavingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [editing, setEditing] = useState(null) // { id, draft }
+  const [viewing, setViewing] = useState(null) // index into rows
 
   function alertRow(id, message) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, _error: message } : r)))
@@ -156,7 +159,7 @@ export default function ReceiptsTable({ initial }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.map((r, i) => {
               const draft = editing?.id === r.id ? editing.draft : null
               const busy = savingId === r.id
               return (
@@ -175,9 +178,9 @@ export default function ReceiptsTable({ initial }) {
                   }
                 >
                   <td>
-                    <a href={r.imageUrl} target="_blank" rel="noreferrer">
+                    <button type="button" className="receipt-thumb-btn" onClick={() => setViewing(i)} title="Open the photo">
                       <img className="receipt-thumb" src={r.imageUrl} alt="Receipt photo" loading="lazy" />
-                    </a>
+                    </button>
                   </td>
                   {draft ? (
                     <>
@@ -212,7 +215,18 @@ export default function ReceiptsTable({ initial }) {
                   <td className="num" style={{ textAlign: 'right' }}>
                     {r.total === null || r.total === undefined ? '—' : ILSp.format(vatAmount(r.total))}
                   </td>
-                  <td className="muted">{r.employees?.name || '—'}</td>
+                  <td className={draft ? '' : 'muted'}>
+                    {draft ? (
+                      <select className="input receipt-input" value={draft.uploaded_by} onChange={(e) => setDraft('uploaded_by', e.target.value)}>
+                        <option value="">—</option>
+                        {employees.map((e) => (
+                          <option key={e.id} value={e.id}>{e.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      r.employees?.name || '—'
+                    )}
+                  </td>
                   <td>
                     <span className={`badge receipt-status receipt-status-${r.parse_status}`} title={r.parse_error || ''}>
                       {r.parse_status}
@@ -284,6 +298,16 @@ export default function ReceiptsTable({ initial }) {
           </tbody>
         </table>
       </div>
+
+      {viewing !== null && rows[viewing] && (
+        <PhotoViewer
+          row={rows[viewing]}
+          position={`${viewing + 1} / ${rows.length}`}
+          onPrev={viewing > 0 ? () => setViewing(viewing - 1) : null}
+          onNext={viewing < rows.length - 1 ? () => setViewing(viewing + 1) : null}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   )
 }

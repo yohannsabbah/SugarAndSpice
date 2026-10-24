@@ -2,7 +2,7 @@ import 'server-only'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { s3Bucket, s3Client } from '@/lib/s3'
-import { getReceipt, listDuplicateCandidates, updateReceiptIfStatus } from '@/lib/db/receipts'
+import { getReceipt, getReceiptVendor, listDuplicateCandidates, updateReceiptIfStatus } from '@/lib/db/receipts'
 import { buildExtractionRequest, parseExtraction, plausibleDate } from '@/lib/receipts/extraction'
 import { VAT_RATE, vatAmount } from '@/lib/receipts/money'
 import { duplicatePlan } from '@/lib/receipts/duplicates'
@@ -54,8 +54,12 @@ export async function processReceipt(id, { client } = {}) {
       const { raw, ai_confidence, ...fields } = parseExtraction(await claude.messages.create(buildExtractionRequest(jpeg)))
 
       const purchased_at = plausibleDate(fields.purchased_at, row.uploaded_at)
+      // The owner named this business before: their name and category win.
+      const known = fields.business_id ? await getReceiptVendor(fields.business_id) : null
       const saved = await updateReceiptIfStatus(id, READABLE, {
         ...fields,
+        vendor: known?.vendor || fields.vendor,
+        category: known?.category || fields.category,
         purchased_at,
         ai_confidence: purchased_at === fields.purchased_at ? ai_confidence : 'low',
         raw_extraction: raw,

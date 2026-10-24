@@ -206,11 +206,15 @@ export async function replaceWoltOrders(periodId, orders) {
   return data
 }
 
-export async function insertWoltOrderItems(orderId, items) {
-  if (!items.length) return
-  // Resolve item_id for each line (creates items as needed)
+const ORDER_ITEMS_CHUNK = 1000
+
+// lines: [{ orderId, item }] for a whole upload. One insert per chunk, not
+// one per order: a purchases CSV has hundreds of orders, and one request per
+// order ran past the host's time limit (504).
+export async function insertWoltOrderItems(lines) {
   const enriched = []
-  for (const it of items) {
+  for (const { orderId, item: it } of lines) {
+    // Resolve item_id (creates items as needed; upsertItem caches by name).
     const itemId = await upsertItem({
       merchant_sku: null, // CSV purchases don't include SKU
       display_name: it.item_name,
@@ -225,8 +229,10 @@ export async function insertWoltOrderItems(orderId, items) {
       line_total_incl_vat: it.line_total_incl_vat,
     })
   }
-  const { error } = await supabase.from('wolt_order_items').insert(enriched)
-  if (error) throw error
+  for (let i = 0; i < enriched.length; i += ORDER_ITEMS_CHUNK) {
+    const { error } = await supabase.from('wolt_order_items').insert(enriched.slice(i, i + ORDER_ITEMS_CHUNK))
+    if (error) throw error
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

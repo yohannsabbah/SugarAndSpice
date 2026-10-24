@@ -324,7 +324,13 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                       incomplete={gaps.includes('store') || gaps.includes('wolt')}
                       strong
                     />
-                    <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
+                    <MoneyCell
+                      value={r.expenses}
+                      extra={r.expenses_receipts ? `${ILS.format(r.expenses_receipts)} from receipts` : null}
+                      missing={gaps.includes('expenses')}
+                      href="/admin/expenses"
+                      negative
+                    />
                     <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/shifts" negative />
                     <MoneyCell
                       value={addUp([r.expenses, r.salary])}

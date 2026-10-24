@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
-import { countReceiptsWithKey, deleteReceipt, getReceipt, updateReceipt } from '@/lib/db/receipts'
+import { countReceiptsWithKey, deleteReceipt, getReceipt, saveReceiptVendor, updateReceipt } from '@/lib/db/receipts'
 import { VAT_RATE, vatAmount } from '@/lib/receipts/money'
 import { RECEIPT_CATEGORIES } from '@/lib/receipts/categories'
+import { getEmployee } from '@/lib/db/employees'
 import { copyToDeleted, removeOriginal } from '@/lib/receipts/archive'
 
 export const dynamic = 'force-dynamic'
@@ -47,6 +48,12 @@ const FIELDS = {
     if (Number.isFinite(n) && n >= 0 && Math.abs(Math.round(n * 100) - n * 100) < 1e-6) return n
     throw new Error('total must be a number of at least 0 with up to 2 decimals')
   },
+  // The owner fills in who uploaded a receipt; the route checks the employee exists.
+  uploaded_by(v) {
+    if (v === null) return null
+    if (typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)) return v
+    throw new Error('uploaded_by must be an employee id')
+  },
   // The owner can only clear a duplicate mark; marking is the extractor's job.
   duplicate_of(v) {
     if (v === null) return null
@@ -63,7 +70,9 @@ function text(name) {
 }
 
 // PATCH /api/admin/receipts/[id] — the owner corrects a field. Any edit marks
-// the row reviewed, so extraction never overwrites it afterwards.
+// the row reviewed, so extraction never overwrites it afterwards. A vendor or
+// category edit is also saved for the receipt's business number, so later
+// receipts from that business get the owner's values.
 export async function PATCH(req, { params }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -88,6 +97,9 @@ export async function PATCH(req, { params }) {
     if (!(await getReceipt(id))) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
+    if (fields.uploaded_by && !(await getEmployee(fields.uploaded_by))) {
+      return NextResponse.json({ error: 'uploaded_by must be an employee' }, { status: 400 })
+    }
     if ('total' in fields) {
       fields.vat_rate = VAT_RATE
       fields.vat_amount = vatAmount(fields.total)
@@ -97,6 +109,9 @@ export async function PATCH(req, { params }) {
       parse_status: 'reviewed',
       reviewed_at: new Date().toISOString(),
     })
+    if (receipt.business_id && ('vendor' in fields || 'category' in fields)) {
+      await saveReceiptVendor(receipt.business_id, { vendor: receipt.vendor, category: receipt.category })
+    }
     return NextResponse.json({ receipt })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })

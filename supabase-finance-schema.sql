@@ -651,6 +651,23 @@ alter table receipts alter column image_sha256 drop not null;
 create index if not exists receipts_s3_key_idx
   on receipts (s3_key);
 
+-- Added 2026-10-24 (later): the seller's business number (ח.פ / ע.מ), and the
+-- owner's name and category for each business number. The model misreads
+-- Hebrew store names but reads the number well, so one correction by the
+-- owner names every later receipt from that business.
+alter table receipts add column if not exists business_id text;
+
+create table if not exists receipt_vendors (
+  business_id  text primary key,
+  vendor       text,
+  category     text,
+  updated_at   timestamptz not null default now()
+);
+alter table receipt_vendors enable row level security;
+drop policy if exists "receipt_vendors anon all" on receipt_vendors;
+create policy "receipt_vendors anon all" on receipt_vendors
+  for all using (true) with check (true);
+
 
 ------------------------------------------------------------------------
 -- RLS for receipts

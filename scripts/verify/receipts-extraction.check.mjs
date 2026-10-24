@@ -1,7 +1,7 @@
 import { buildExtractionRequest, parseExtraction, plausibleDate, EXTRACTION_MODEL } from '../../src/lib/receipts/extraction.js'
 
 const ok = (json) => ({ stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(json) }] })
-const ref = { purchased_at: '2026-10-21', purchased_time: '20:23:38', vendor: ' גם סטוק נווה שאנן ', receipt_number: '614461', total: 48.6, category: 'ingredients', legible: true }
+const ref = { purchased_at: '2026-10-21', purchased_time: '20:23:38', vendor: ' גם סטוק נווה שאנן ', receipt_number: '614461', business_id: 'ח.פ 515235943', total: 48.6, category: 'ingredients', legible: true }
 function throws(fn) {
   try {
     fn()
@@ -26,7 +26,9 @@ const cases = [
   ['model id', req.model, 'us.anthropic.claude-haiku-4-5-20251001-v1:0'],
   ['no effort param', 'effort' in req.output_config, false],
   ['image before text', req.messages[0].content[0].type, 'image'],
-  ['seven required fields', req.output_config.format.schema.required.length, 7],
+  ['eight required fields', req.output_config.format.schema.required.length, 8],
+  ['business id digits only', parseExtraction(ok(ref)).business_id, '515235943'],
+  ['short business id → null', parseExtraction(ok({ ...ref, business_id: '1234' })).business_id, null],
   ['category kept', parseExtraction(ok(ref)).category, 'ingredients'],
   ['unknown category → null', parseExtraction(ok({ ...ref, category: 'snacks' })).category, null],
   ['prompt lists categories', req.messages[0].content[1].text.includes('packaging'), true],

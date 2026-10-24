@@ -702,3 +702,67 @@ textarea {
 }
 .tv-anim-leave-tilt { animation: tv-leave-tilt 2000ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 .tv-anim-enter-tilt { animation: tv-enter-tilt 2000ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* ── Employee sign-in ─────────────────────────────────────────────────── */
+.name-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+.name-box {
+  min-height: 88px;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.name-box:hover,
+.name-box:focus-visible {
+  border-color: var(--brand-pink);
+  background: var(--brand-pink-bg);
+}
+.name-box:active {
+  transform: scale(0.98);
+}
+
+.employee-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+}
+.employee-bar-logo {
+  display: block;
+  height: 48px;
+  width: auto;
+  border-radius: 8px;
+  flex: none;
+}
+.employee-bar-name {
+  flex: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.employee-bar .btn {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  min-height: 44px;
+}
+
+/* The card stays in the middle of the screen under the bar. */
+.employee-main {
+  margin: auto 0;
+  padding: 24px 0;
+}

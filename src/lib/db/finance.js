@@ -2,6 +2,7 @@ import 'server-only'
 import { supabase } from '@/lib/supabase'
 import { inferCategory } from './wolt.js'
 import { getMonthlyExpenseSummaries } from './expenses.js'
+import { getReceiptsByMonth } from './receipts.js'
 import { hourlyRateFor, isJenny } from '@/lib/payroll'
 import { EXPENSE_VAT_RATE, VAT_RATE, withoutVat } from '@/lib/vat'
 import { shiftDurationMs } from '@/lib/format'
@@ -275,6 +276,7 @@ async function getMonthlyShiftPay() {
 // {
 //   month: 'YYYY-MM',
 //   store, wolt, expenses: { incl, excl, vat } | null,  // wolt = sales − Wolt fees
+//   expenses_receipts, // how much of `expenses` (with VAT) comes from receipt photos
 //   wolt_total_sales, // Wolt "Total sales": with VAT, before fees and refunds | null
 //   wolt_periods,   // Wolt half-month periods with an uploaded invoice (0-2)
 //   salary,         // shift pay + 'salary' expenses (no VAT) | null
@@ -295,7 +297,7 @@ function addMoney(a, b) {
 }
 
 export async function getMonthlyOverview() {
-  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay] = await Promise.all([
+  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay, receipts] = await Promise.all([
     supabase
       .from('wolt_periods')
       .select('period_start, gross_sales_incl_vat, refunds_incl_vat, wolt_fees_incl_vat, wolt_fees_excl_vat'),
@@ -305,6 +307,7 @@ export async function getMonthlyOverview() {
       throw e
     }),
     getMonthlyShiftPay(),
+    getReceiptsByMonth(),
   ])
   if (e1) throw e1
   if (e2) throw e2
@@ -349,6 +352,19 @@ export async function getMonthlyOverview() {
     const r = row(e.month)
     if (total) r.expenses = total
     if (e.by_category.salary) r.salary = (r.salary || 0) + e.by_category.salary
+  }
+
+  // Receipt photos are expenses too. Their categories have their own names;
+  // the shared ones (meals, transport, equipment) take the expense VAT rule.
+  for (const [month, list] of receipts) {
+    let total = null
+    for (const { total: amount, category } of list) {
+      total = addMoney(total, money(amount, withoutVat(amount, EXPENSE_VAT_RATE[category] ?? VAT_RATE)))
+    }
+    if (!total) continue
+    const r = row(month)
+    r.expenses = addMoney(r.expenses, total)
+    r.expenses_receipts = total.incl
   }
 
   for (const [month, pay] of shiftPay) {

@@ -1,6 +1,7 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { countPendingReceipts, listReceiptsForMonth } from '@/lib/db/receipts'
+import { listEmployees } from '@/lib/db/employees'
 import { currentIsraelMonth } from '@/lib/receipts/month'
 import { s3Bucket, s3Client } from '@/lib/s3'
 import ReceiptsTable from './ReceiptsTable'
@@ -30,9 +31,13 @@ export default async function ReceiptsPage({ searchParams }) {
   const sp = await searchParams
   const month = sp?.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : currentIsraelMonth()
 
-  let rows, pendingCount
+  let rows, pendingCount, employees
   try {
-    ;[rows, pendingCount] = await Promise.all([withImageUrls(await listReceiptsForMonth(month)), countPendingReceipts()])
+    ;[rows, pendingCount, employees] = await Promise.all([
+      withImageUrls(await listReceiptsForMonth(month)),
+      countPendingReceipts(),
+      listEmployees({ includeInactive: true }),
+    ])
   } catch (err) {
     return (
       <div className="insight bad">
@@ -61,7 +66,7 @@ export default async function ReceiptsPage({ searchParams }) {
       {rows.length === 0 ? (
         <div className="card muted">No receipts this month.</div>
       ) : (
-        <ReceiptsTable key={`${month}-${pendingCount}`} initial={rows} />
+        <ReceiptsTable key={`${month}-${pendingCount}`} initial={rows} employees={employees.map((e) => ({ id: e.id, name: e.name }))} />
       )}
     </div>
   )

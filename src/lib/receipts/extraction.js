@@ -5,8 +5,9 @@
 import { CATEGORY_HINTS, RECEIPT_CATEGORIES } from './categories.js'
 
 // Claude Haiku 4.5 through the US cross-region inference profile. The owner's
-// AWS account is not approved for the 5.x models on Bedrock. Haiku 4.5
-// rejects `effort`, so the request does not send it.
+// AWS account is not approved for the 5.x models on Bedrock. Sonnet 4.5 read
+// Hebrew store names better but costs about 3 times more; the owner chose
+// Haiku. Haiku 4.5 rejects `effort`, so the request does not send it.
 export const EXTRACTION_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 
 const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
@@ -14,11 +15,12 @@ const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
 export const RECEIPT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['purchased_at', 'purchased_time', 'vendor', 'receipt_number', 'total', 'category', 'legible'],
+  required: ['purchased_at', 'purchased_time', 'vendor', 'business_id', 'receipt_number', 'total', 'category', 'legible'],
   properties: {
     purchased_at: nullable('string'),
     purchased_time: nullable('string'),
     vendor: nullable('string'),
+    business_id: nullable('string'),
     receipt_number: nullable('string'),
     total: nullable('number'),
     category: { anyOf: [{ type: 'string', enum: RECEIPT_CATEGORIES }, { type: 'null' }] },
@@ -29,7 +31,10 @@ export const RECEIPT_SCHEMA = {
 const PROMPT =
   'This is a photo of a purchase receipt, usually Israeli and in Hebrew. ' +
   'Read: purchased_at as YYYY-MM-DD; purchased_time as HH:MM:SS (24-hour) if printed; ' +
-  'vendor as the business name printed at the top; ' +
+  'vendor as the title of the receipt: the largest text or the logo at the very top, without "בע"מ". ' +
+  'When a logo sits above a smaller company line (for example a logo above "שופרסל בע"מ"), use the logo. ' +
+  'Copy the Hebrew letters exactly as printed. Do not guess a name you cannot read; ' +
+  'business_id as the seller\'s business number printed near the top (ח.פ, ע.מ, ח.צ or עוסק מורשה), digits only; ' +
   "receipt_number as the receipt or tax-invoice number (מס' קבלה / חשבונית מס); " +
   'total as the final amount paid (סה"כ לתשלום) as a number; ' +
   `category as what the purchase was for, one of: ${CATEGORY_HINTS}. ` +
@@ -75,6 +80,12 @@ function amount(v) {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null
 }
 
+// Israeli company and dealer numbers have 9 digits; older ones print 8.
+function businessId(v) {
+  const digits = typeof v === 'string' ? v.replace(/\D/g, '') : ''
+  return digits.length === 8 || digits.length === 9 ? digits : null
+}
+
 function text(v) {
   return typeof v === 'string' && v.trim() !== '' ? v.trim() : null
 }
@@ -108,6 +119,7 @@ export function parseExtraction(response) {
     purchased_at: realDate(raw.purchased_at),
     purchased_time: clockTime(raw.purchased_time),
     vendor: text(raw.vendor),
+    business_id: businessId(raw.business_id),
     receipt_number: text(raw.receipt_number),
     total: amount(raw.total),
     category: RECEIPT_CATEGORIES.includes(raw.category) ? raw.category : null,

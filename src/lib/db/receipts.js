@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabase } from '@/lib/supabase'
-import { receiptMonthBounds } from '@/lib/receipts/month'
+import { receiptMonth, receiptMonthBounds } from '@/lib/receipts/month'
 
 const UNIQUE_VIOLATION = '23505'
 
@@ -56,6 +56,24 @@ export async function listReceiptsForMonth(month) {
   return data
 }
 
+// Every counted receipt (no duplicates, with an amount), grouped by month for
+// the admin overview: Map 'YYYY-MM' → [{ total, category }].
+export async function getReceiptsByMonth() {
+  const { data, error } = await supabase
+    .from('receipts')
+    .select('purchased_at, uploaded_at, total, category')
+    .is('duplicate_of', null)
+    .not('total', 'is', null)
+  if (error) throw error
+  const by = new Map()
+  for (const r of data) {
+    const month = receiptMonth(r)
+    if (!by.has(month)) by.set(month, [])
+    by.get(month).push({ total: Number(r.total), category: r.category })
+  }
+  return by
+}
+
 export async function getReceipt(id) {
   const { data, error } = await supabase.from('receipts').select('*').eq('id', id).maybeSingle()
   if (error) throw error
@@ -67,7 +85,7 @@ export async function updateReceipt(id, fields) {
     .from('receipts')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .select('*')
+    .select('*, employees(name)')
     .single()
   if (error) throw error
   return data
@@ -122,6 +140,23 @@ export async function countReceiptsWithKey(s3Key) {
     .eq('s3_key', s3Key)
   if (error) throw error
   return count ?? 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The owner's names, by business number
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getReceiptVendor(businessId) {
+  const { data, error } = await supabase.from('receipt_vendors').select('vendor, category').eq('business_id', businessId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveReceiptVendor(businessId, { vendor, category }) {
+  const { error } = await supabase
+    .from('receipt_vendors')
+    .upsert({ business_id: businessId, vendor, category, updated_at: new Date().toISOString() })
+  if (error) throw error
 }
 
 // Removes the row only. The admin route moves the photo to receipts/deleted/ first.

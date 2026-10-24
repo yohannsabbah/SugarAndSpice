@@ -46,3 +46,8 @@ export function currentIsraelMonth(now = new Date()) {
   const parts = Object.fromEntries(YEAR_MONTH.formatToParts(now).map((p) => [p.type, p.value]))
   return `${parts.year}-${parts.month}`
 }
+
+// The month a receipt belongs to, by the rule at the top of this file.
+export function receiptMonth(row) {
+  return row.purchased_at ? row.purchased_at.slice(0, 7) : currentIsraelMonth(new Date(row.uploaded_at))
+}
