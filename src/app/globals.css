@@ -211,14 +211,32 @@ textarea {
 .top-actions .btn {
   padding: 8px 14px;
   font-size: 0.85rem;
-  line-height: 1.2; /* the camera emoji otherwise makes Receipt taller */
+  line-height: 1.2;
+  min-height: 44px; /* same height for Receipt and Switch user */
 }
 
 .receipt-button {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+.receipt-button .btn {
+  line-height: 1.2; /* the camera emoji otherwise makes the button taller */
+}
+.receipt-button-header {
   align-items: flex-end;
   gap: 4px;
+}
+/* A little bigger than Switch user: receipts are a main employee task. */
+.top-actions .receipt-button-header .btn {
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-color: var(--brand-blue);
+}
+.receipt-button-header .receipt-button-error {
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 .receipt-done-backdrop {
   position: fixed;
@@ -256,8 +274,8 @@ textarea {
   color: var(--success);
 }
 .receipt-button-error {
-  font-size: 0.75rem;
-  white-space: nowrap;
+  font-size: 0.85rem;
+  text-align: center;
   color: var(--danger);
 }
 

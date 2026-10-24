@@ -4,12 +4,15 @@ import { useRef, useState } from 'react'
 import { downscaleToJpeg } from '@/lib/receipts/prepareImage'
 import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
 
-// Short and fixed: it sits in the top corner beside the logo, and the
-// employee only needs to know the photo is not saved yet.
-const ERROR_TEXT = 'Not saved'
+// Short and fixed: the employee only needs to know the photo is not saved yet.
+// The header button has little room, so it gets the shortest text.
+const ERROR_TEXT = {
+  large: 'Not saved — tap the button to try again',
+  header: 'Not saved',
+}
 
 const LABEL = {
-  idle: '📷 Receipt',
+  idle: { large: '📷 Upload a receipt', header: '📷 Receipt' },
   working: 'Uploading…',
   done: '✓ Done',
   error: 'Try again',
@@ -50,7 +53,9 @@ async function uploadReceipt(file) {
   }
 }
 
-export default function ReceiptButton() {
+// variant: 'large' is a full-width main button (home screen card). 'header'
+// sits in the top-right corner of the home and employee screens.
+export default function ReceiptButton({ variant = 'header' }) {
   const [state, setState] = useState('idle')
   const inputRef = useRef(null)
   const fileRef = useRef(null)
@@ -88,20 +93,20 @@ export default function ReceiptButton() {
   }
 
   return (
-    <div className="receipt-button">
+    <div className={`receipt-button receipt-button-${variant}`}>
       {/* No `capture` attribute: with it, phones open the camera directly and
           hide the photo library and files. Without it, iOS offers Take Photo /
           Photo Library / Choose File, and Android offers Camera / Files. */}
       <input ref={inputRef} type="file" accept="image/*" onChange={handleChange} hidden />
       <button
         type="button"
-        className="btn btn-ghost"
+        className={variant === 'large' ? 'btn btn-primary btn-lg btn-block' : 'btn btn-ghost'}
         onClick={handleClick}
         disabled={state === 'working'}
       >
-        {LABEL[state]}
+        {state === 'idle' ? LABEL.idle[variant] : LABEL[state]}
       </button>
-      {state === 'error' && <div className="receipt-button-error">{ERROR_TEXT}</div>}
+      {state === 'error' && <div className="receipt-button-error">{ERROR_TEXT[variant]}</div>}
       {state === 'done' && <DoneDialog onClose={() => setState('idle')} />}
     </div>
   )
