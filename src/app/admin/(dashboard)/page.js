@@ -69,12 +69,6 @@ export default async function AdminOverviewPage({ searchParams }) {
 
   return (
     <div className="stack" style={{ gap: 20 }}>
-      <div className="row" style={{ gap: 16 }}>
-        <StatCard label="Active employees" value={activeEmployees} />
-        <StatCard label="On shift now" value={openShifts.length} />
-        <StatCard label="Total employees" value={employees.length} />
-      </div>
-
       <MonthlySummaryCard rows={overview} searchParams={sp || {}} />
 
       {/* Section tiles — direct entry to each admin area */}
@@ -348,14 +342,14 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                       }}
                       title={gaps.length ? 'Incomplete: some data is missing' : undefined}
                     >
-                      {gaps.length ? '~ ' : ''}{signed(r.profit)}
+                      {signed(r.profit)}
                     </td>
                     <td
                       className="muted"
                       style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
                       title={gaps.length ? 'Incomplete: some data is missing' : undefined}
                     >
-                      {gaps.length ? '~ ' : ''}{signed(r.vat_to_pay)}
+                      {signed(r.vat_to_pay)}
                     </td>
                   </tr>
                 )
@@ -423,8 +417,8 @@ function signed(amount) {
 
 // value: a number (no VAT, e.g. salary) or { incl, excl } (shows excl, with
 // the VAT-included amount in small text under it). `extra` adds one more
-// small line under the amount. `strong` marks a subtotal; `incomplete` adds
-// "~" when some of its parts are missing.
+// small line under the amount. `strong` marks a subtotal; `incomplete` greys
+// it out when some of its parts are missing.
 function MoneyCell({ value, missing, href, missingLabel, negative, extra, strong, incomplete }) {
   const hasValue = value != null
   const excl = typeof value === 'number' ? value : value?.excl
@@ -437,11 +431,11 @@ function MoneyCell({ value, missing, href, missingLabel, negative, extra, strong
             style={strong ? { fontWeight: 700, color: incomplete ? 'var(--fg-muted)' : undefined } : undefined}
             title={incomplete ? 'Incomplete: some data is missing' : undefined}
           >
-            {incomplete ? '~ ' : ''}{sign}{ILS.format(excl)}
+            {sign}{ILS.format(excl)}
           </div>
           {typeof value === 'object' && (
             <div className="muted" style={{ fontSize: '0.72rem' }}>
-              {incomplete ? '~ ' : ''}{sign}{ILS.format(value.incl)} incl. VAT
+              {sign}{ILS.format(value.incl)} incl. VAT
             </div>
           )}
           {extra && <div className="muted" style={{ fontSize: '0.72rem' }}>{extra}</div>}
@@ -501,16 +495,5 @@ function SectionTile({ href, title, subtitle, accent, badge }) {
         Open →
       </div>
     </Link>
-  )
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="card" style={{ flex: 1, minWidth: 160 }}>
-      <div className="muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: '2rem', fontWeight: 700, marginTop: 4 }}>{value}</div>
-    </div>
   )
 }
