@@ -227,7 +227,8 @@ function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
   const rows = monthsBetween(from, to)
     .reverse()
     .map((month) => byMonth.get(month) || {
-      month, store: null, wolt: null, wolt_periods: 0, expenses: null, salary: null, total: 0,
+      month, store: null, wolt: null, wolt_periods: 0, expenses: null, salary: null,
+      profit: 0, vat_to_pay: 0,
     })
 
   const gapsOf = (r) => {
@@ -261,16 +262,22 @@ function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
           defaultLabel={`Last ${DEFAULT_MONTHS} months`}
         />
       </div>
+      <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
+        Amounts without VAT. The small number under each amount includes VAT, as Nayax and Wolt show it.
+      </p>
       <div style={{ overflowX: 'auto' }}>
         <table className="table">
           <thead>
             <tr>
               <th>Month</th>
               <th style={{ textAlign: 'right' }}>Store</th>
-              <th style={{ textAlign: 'right' }}>Wolt</th>
+              <th style={{ textAlign: 'right' }}>Wolt (after fees)</th>
               <th style={{ textAlign: 'right' }}>Expenses</th>
               <th style={{ textAlign: 'right' }}>Salary</th>
-              <th style={{ textAlign: 'right' }}>Total</th>
+              <th style={{ textAlign: 'right' }}>Profit</th>
+              <th style={{ textAlign: 'right' }} title="VAT on sales minus reclaimable VAT on Wolt fees and expenses. Not part of profit.">
+                VAT to pay
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -292,23 +299,31 @@ function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
                   <MoneyCell value={r.store} missing={gaps.includes('store')} href="/admin/nayax" />
                   <MoneyCell
                     value={r.wolt}
+                    extra={r.wolt_total_sales != null ? `${ILS.format(r.wolt_total_sales)} total sales` : null}
                     missing={gaps.includes('wolt')}
                     href="/admin/wolt"
                     missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
                   />
                   <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
-                  <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/expenses" negative />
+                  <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/shifts" negative />
                   <td
                     style={{
                       textAlign: 'right',
                       fontWeight: 700,
                       fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap',
-                      color: gaps.length ? 'var(--fg-muted)' : r.total >= 0 ? 'var(--success)' : 'var(--danger)',
+                      color: gaps.length ? 'var(--fg-muted)' : r.profit >= 0 ? 'var(--success)' : 'var(--danger)',
                     }}
                     title={gaps.length ? 'Incomplete: some data is missing' : undefined}
                   >
-                    {gaps.length ? '~ ' : ''}{r.total < 0 ? '−' : ''}{ILS.format(Math.abs(r.total))}
+                    {gaps.length ? '~ ' : ''}{signed(r.profit)}
+                  </td>
+                  <td
+                    className="muted"
+                    style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+                    title={gaps.length ? 'Incomplete: some data is missing' : undefined}
+                  >
+                    {gaps.length ? '~ ' : ''}{signed(r.vat_to_pay)}
                   </td>
                 </tr>
               )
@@ -320,18 +335,36 @@ function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
   )
 }
 
-function MoneyCell({ value, missing, href, missingLabel, negative }) {
+function signed(amount) {
+  return `${amount < 0 ? '−' : ''}${ILS.format(Math.abs(amount))}`
+}
+
+// value: a number (no VAT, e.g. salary) or { incl, excl } (shows excl, with
+// the VAT-included amount in small text under it). `extra` adds one more
+// small line under the amount.
+function MoneyCell({ value, missing, href, missingLabel, negative, extra }) {
+  const hasValue = value != null
+  const excl = typeof value === 'number' ? value : value?.excl
+  const sign = negative && excl > 0 ? '−' : ''
   return (
     <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-      {value != null && (
-        <div>{negative && value > 0 ? '−' : ''}{ILS.format(value)}</div>
+      {hasValue && (
+        <>
+          <div>{sign}{ILS.format(excl)}</div>
+          {typeof value === 'object' && (
+            <div className="muted" style={{ fontSize: '0.72rem' }}>
+              {sign}{ILS.format(value.incl)} incl. VAT
+            </div>
+          )}
+          {extra && <div className="muted" style={{ fontSize: '0.72rem' }}>{extra}</div>}
+        </>
       )}
       {missing ? (
         <Link
           href={href}
           style={{
             display: 'inline-block',
-            marginTop: value != null ? 4 : 0,
+            marginTop: hasValue ? 4 : 0,
             fontSize: '0.7rem',
             fontWeight: 700,
             padding: '2px 8px',
@@ -342,7 +375,7 @@ function MoneyCell({ value, missing, href, missingLabel, negative }) {
         >
           {missingLabel || 'Missing'}
         </Link>
-      ) : value == null ? (
+      ) : !hasValue ? (
         <span className="muted">—</span>
       ) : null}
     </td>

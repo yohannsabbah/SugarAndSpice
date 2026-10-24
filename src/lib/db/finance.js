@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { inferCategory } from './wolt.js'
 import { getMonthlyExpenseSummaries } from './expenses.js'
 import { hourlyRateFor, isJenny } from '@/lib/payroll'
+import { EXPENSE_VAT_RATE, VAT_RATE, withoutVat } from '@/lib/vat'
 import { shiftDurationMs } from '@/lib/format'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,9 +26,7 @@ function rollupWoltToMonth(periods) {
       net_payout: 0,
       orders: 0,
       fees: 0,
-      periods: 0,
     }
-    m.periods    += 1
     m.gross      += Number(p.gross_sales_incl_vat || 0)
     m.net_sales  += Number(p.net_sales_incl_vat || p.gross_sales_incl_vat || 0)
     m.net_payout += Number(p.net_payout || 0)
@@ -270,58 +269,100 @@ async function getMonthlyShiftPay() {
   return by
 }
 
-// Month-by-month overview for the admin home: store, Wolt, expenses, salary.
-// Covers every month from the first month with data through the current month,
-// so months with no uploads still show up (and can be flagged as missing).
-// Returns newest first: [{ month, store, wolt, wolt_periods, expenses, salary, total }]
-// Each money field is null when that source has no data for the month.
-// Salary comes from logged shifts (see getMonthlyShiftPay).
 // ─────────────────────────────────────────────────────────────────────────────
+// Month-by-month overview for the admin home, without VAT.
+// Returns one row per month that has any data, newest first:
+// {
+//   month: 'YYYY-MM',
+//   store, wolt, expenses: { incl, excl, vat } | null,  // wolt = sales − Wolt fees
+//   wolt_total_sales, // Wolt "Total sales": with VAT, before fees and refunds | null
+//   wolt_periods,   // Wolt half-month periods with an uploaded invoice (0-2)
+//   salary,         // shift pay + 'salary' expenses (no VAT) | null
+//   profit,         // without VAT
+//   vat_to_pay,     // VAT on sales − reclaimable VAT on Wolt fees and expenses (info only)
+// }
+// A field is null when that source has no data for the month. Wolt's 5%
+// withholding and its installment deductions are left out: they come off the
+// payout but are not costs of the business.
+// ─────────────────────────────────────────────────────────────────────────────
+function money(incl, excl) {
+  return { incl, excl, vat: incl - excl }
+}
+
+function addMoney(a, b) {
+  if (!a) return b
+  return money(a.incl + b.incl, a.excl + b.excl)
+}
+
 export async function getMonthlyOverview() {
-  const [income, expenses, shiftPay] = await Promise.all([
-    getMonthlyIncomeSummaries(),
+  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay] = await Promise.all([
+    supabase
+      .from('wolt_periods')
+      .select('period_start, gross_sales_incl_vat, refunds_incl_vat, wolt_fees_incl_vat, wolt_fees_excl_vat'),
+    supabase.from('nayax_periods').select('period_month, net_incl_vat'),
     getMonthlyExpenseSummaries().catch((e) => {
       if (e.missingSchema) return []
       throw e
     }),
     getMonthlyShiftPay(),
   ])
+  if (e1) throw e1
+  if (e2) throw e2
 
-  const incByMonth = new Map(income.map((i) => [i.month, i]))
-  const expByMonth = new Map(expenses.map((e) => [e.month, e]))
-  const known = [...incByMonth.keys(), ...expByMonth.keys(), ...shiftPay.keys()].sort()
-  if (!known.length) return []
-
-  const now = new Date()
-  const last = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const months = []
-  let [y, m] = known[0].split('-').map(Number)
-  for (;;) {
-    const key = `${y}-${String(m).padStart(2, '0')}`
-    if (key > last) break
-    months.push(key)
-    m += 1
-    if (m > 12) { m = 1; y += 1 }
+  const by = new Map()
+  const row = (month) => {
+    if (!by.has(month)) {
+      by.set(month, {
+        month, store: null, wolt: null, wolt_total_sales: null, wolt_periods: 0, expenses: null, salary: null,
+      })
+    }
+    return by.get(month)
   }
 
-  return months.reverse().map((month) => {
-    const i = incByMonth.get(month)
-    const e = expByMonth.get(month)
-    const store = i?.instore ? i.instore.net : null
-    const wolt = i?.wolt ? i.wolt.net_payout : null
-    // Salary = shift pay + any expense rows filed under the 'salary' category.
-    const salaryExpenses = e?.by_category?.salary || 0
-    const pay = shiftPay.get(month)
-    const salary = pay == null && !salaryExpenses ? null : (pay || 0) + salaryExpenses
-    const expensesExSalary = e ? e.total - salaryExpenses : null
-    return {
-      month,
-      store,
-      wolt,
-      wolt_periods: i?.wolt?.periods || 0,
-      expenses: expensesExSalary,
-      salary,
-      total: (store || 0) + (wolt || 0) - (expensesExSalary || 0) - (salary || 0),
+  for (const n of nayax || []) {
+    if (n.net_incl_vat == null) continue
+    const incl = Number(n.net_incl_vat)
+    row(n.period_month.slice(0, 7)).store = money(incl, withoutVat(incl))
+  }
+
+  // A period row can exist before its invoice is uploaded (all amounts null).
+  // Only periods with sales count as uploaded.
+  for (const p of wolt || []) {
+    if (p.gross_sales_incl_vat == null) continue
+    const r = row(p.period_start.slice(0, 7))
+    const salesIncl = Number(p.gross_sales_incl_vat) - Number(p.refunds_incl_vat || 0)
+    const feesIncl = Number(p.wolt_fees_incl_vat || 0)
+    const feesExcl = p.wolt_fees_excl_vat != null ? Number(p.wolt_fees_excl_vat) : withoutVat(feesIncl)
+    r.wolt = addMoney(r.wolt, money(salesIncl - feesIncl, withoutVat(salesIncl) - feesExcl))
+    r.wolt_total_sales = (r.wolt_total_sales || 0) + Number(p.gross_sales_incl_vat)
+    r.wolt_periods += 1
+  }
+
+  // Expenses are card charges with VAT. Salary rows move to the salary column.
+  for (const e of expenses) {
+    let total = null
+    for (const [category, amount] of Object.entries(e.by_category)) {
+      if (category === 'salary') continue
+      const rate = EXPENSE_VAT_RATE[category] ?? VAT_RATE
+      total = addMoney(total, money(amount, withoutVat(amount, rate)))
     }
-  })
+    const r = row(e.month)
+    if (total) r.expenses = total
+    if (e.by_category.salary) r.salary = (r.salary || 0) + e.by_category.salary
+  }
+
+  for (const [month, pay] of shiftPay) {
+    const r = row(month)
+    r.salary = (r.salary || 0) + pay
+  }
+
+  const excl = (m) => m?.excl || 0
+  const vat = (m) => m?.vat || 0
+  return [...by.values()]
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .map((r) => ({
+      ...r,
+      profit: excl(r.store) + excl(r.wolt) - excl(r.expenses) - (r.salary || 0),
+      vat_to_pay: vat(r.store) + vat(r.wolt) - vat(r.expenses),
+    }))
 }
