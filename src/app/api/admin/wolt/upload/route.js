@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isAdmin } from '@/lib/admin'
-import { classifyPdf, classifyCsv } from '@/lib/parsers/wolt/classify'
 import { periodNumForDate, periodDates } from '@/lib/parsers/wolt/period'
-import { parseCsvItems, parseCsvPurchases } from '@/lib/parsers/wolt'
+import { parseCsvItems } from '@/lib/parsers/wolt/parseCsvItems'
+import { parseCsvPurchases } from '@/lib/parsers/wolt/parseCsvPurchases'
 import {
   upsertWoltPeriod,
   replaceWoltPeriodFees,
@@ -22,6 +22,17 @@ const PDF_MAGIC = '%PDF-'
 const PRIORITY = { w2m: 0, m2w: 1, sales_report: 2, csv_items: 3, netting: 4, csv_purchases: 5, unknown: 6 }
 
 export async function POST(req) {
+  // Always answer with JSON, so the upload screen shows the real error
+  // instead of a bare "Internal Server Error".
+  try {
+    return await handleUpload(req)
+  } catch (e) {
+    console.error('Wolt upload failed:', e)
+    return NextResponse.json({ error: `Server error: ${e.message}` }, { status: 500 })
+  }
+}
+
+async function handleUpload(req) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -32,23 +43,32 @@ export async function POST(req) {
   const files = form.getAll('files')
   if (!files.length) return NextResponse.json({ error: 'No files provided' }, { status: 400 })
 
+  // Loaded here, not at the top of the file: the PDF library can fail to load
+  // on the server, and that error must reach the catch in POST.
+  const { classifyPdf, classifyCsv } = await import('@/lib/parsers/wolt/classify')
+
   const classified = []
+  const results = []
   for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const isPdf = buffer.subarray(0, 5).toString('latin1') === PDF_MAGIC
-    if (isPdf) {
-      const { type, parsed } = await classifyPdf(buffer)
-      classified.push({ filename: file.name, type, parsed })
-    } else {
-      const text = buffer.toString('utf8')
-      const type = classifyCsv(text)
-      classified.push({ filename: file.name, type, text })
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const isPdf = buffer.subarray(0, 5).toString('latin1') === PDF_MAGIC
+      if (isPdf) {
+        const { type, parsed } = await classifyPdf(buffer)
+        classified.push({ filename: file.name, type, parsed })
+      } else {
+        const text = buffer.toString('utf8')
+        const type = classifyCsv(text)
+        classified.push({ filename: file.name, type, text })
+      }
+    } catch (e) {
+      console.error(`Wolt upload: could not read ${file.name}:`, e)
+      results.push({ filename: file.name, detected_type: 'unknown', status: 'error', detail: `Could not read file: ${e.message}` })
     }
   }
 
   classified.sort((a, b) => PRIORITY[a.type] - PRIORITY[b.type])
 
-  const results = []
   for (const file of classified) {
     try {
       const detail = await processFile(file)

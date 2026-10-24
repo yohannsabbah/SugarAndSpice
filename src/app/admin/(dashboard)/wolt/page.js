@@ -7,6 +7,7 @@ import {
   getReviewBreakdownByMonth,
 } from '@/lib/db/wolt'
 import UploadCard from './UploadCard'
+import { periodDates } from '@/lib/parsers/wolt/period'
 import './wolt.css'
 
 export const dynamic = 'force-dynamic'
@@ -151,10 +152,15 @@ export default async function WoltInsightsPage({ searchParams }) {
   const prevForKPI = prevWithinMonth || (prevPeriods.length ? prevPeriods[prevPeriods.length - 1] : null)
   const prev = prevForKPI
 
+  // Both half-month periods of the selected month, uploaded or not, so the
+  // file-status table always shows what is still missing.
+  const statusPeriods = monthPeriodsWithStubs(selectedMonth, periods)
+  const hasItemsCsv = topItems.length > 0
+
   if (!latest) {
     return (
       <div className="stack" style={{ gap: 20 }}>
-        <UploadCard />
+        <UploadAndStatusCard periods={statusPeriods} monthLabel={monthLabel} hasItemsCsv={hasItemsCsv} />
         <div className="card">
           <h2 className="section-h2">No Wolt data for {monthLabel}</h2>
           <p className="muted">Upload this month&apos;s Wolt packet above, or try selecting a different month.</p>
@@ -205,7 +211,7 @@ export default async function WoltInsightsPage({ searchParams }) {
         </span>
       </div>
 
-      <UploadAndStatusCard periods={periods} monthLabel={monthLabel} hasItemsCsv={topItems.length > 0} />
+      <UploadAndStatusCard periods={statusPeriods} monthLabel={monthLabel} hasItemsCsv={hasItemsCsv} />
 
       {/* ── Executive summary: 4 boxes ─────────────────────────────── */}
       <div className="kpi-row">
@@ -402,6 +408,21 @@ export default async function WoltInsightsPage({ searchParams }) {
 }
 
 // ── components ──────────────────────────────────────────────────────────────
+// The month's two Wolt periods (1st–15th, 16th–end). A period with no row yet
+// becomes a stub with no files received.
+function monthPeriodsWithStubs(month, periods) {
+  const [y, m] = month.split('-').map(Number)
+  return [m * 2 - 1, m * 2].map((num) => {
+    const { start, end } = periodDates(y, num)
+    return periods.find((p) => p.period_start === start) || {
+      id: `stub-${y}-${num}`,
+      period_start: start,
+      period_end: end,
+      orders_total: 0,
+    }
+  })
+}
+
 function periodFilesComplete(p) {
   return !!(p.w2m_received_at && p.m2w_received_at && p.netting_received_at && p.sales_report_received_at && p.orders_total > 0)
 }
@@ -446,7 +467,8 @@ function UploadAndStatusCard({ periods, monthLabel, hasItemsCsv }) {
   if (missingCount > 0) missingParts.push(`${missingCount} period${missingCount > 1 ? 's' : ''} missing files`)
   if (!hasItemsCsv) missingParts.push('items CSV missing')
   return (
-    <details className="card" open={!allComplete}>
+    // Open by default, even when complete, so the file status is always in view.
+    <details className="card" open>
       <summary className="section-h2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
         Upload & file status
         {periods.length > 0 && (

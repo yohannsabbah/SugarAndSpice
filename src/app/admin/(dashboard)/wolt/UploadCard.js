@@ -29,7 +29,14 @@ export default function UploadCard({ bare = false }) {
     for (const f of files) fd.append('files', f)
     try {
       const res = await fetch('/api/admin/wolt/upload', { method: 'POST', body: fd })
-      const json = await res.json()
+      // The hosting layer can answer with plain text (e.g. a timeout), not JSON.
+      const raw = await res.text()
+      let json
+      try {
+        json = JSON.parse(raw)
+      } catch {
+        json = { error: `Server answered ${res.status}: ${raw.slice(0, 200)}` }
+      }
       if (!res.ok) {
         setError(json.error || 'Upload failed')
       } else {
