@@ -87,7 +87,7 @@ export async function updateReceiptIfStatus(id, statuses, fields) {
   return data
 }
 
-// The S3 object stays: a mistaken delete stays recoverable.
+// Removes the row only. The admin route moves the photo to receipts/deleted/ first.
 export async function deleteReceipt(id) {
   const { error } = await supabase.from('receipts').delete().eq('id', id)
   if (error) throw error

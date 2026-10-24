@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
 import { deleteReceipt, getReceipt, updateReceipt } from '@/lib/db/receipts'
 import { VAT_RATE, vatAmount } from '@/lib/receipts/money'
+import { copyToDeleted, removeOriginal } from '@/lib/receipts/archive'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,17 +98,22 @@ export async function PATCH(req, { params }) {
   }
 }
 
-// DELETE /api/admin/receipts/[id] — removes the row. The photo stays in S3.
+// DELETE /api/admin/receipts/[id] — removes the row and moves the photo to receipts/deleted/.
 export async function DELETE(req, { params }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const { id } = await params
   try {
-    if (!(await getReceipt(id))) {
+    const row = await getReceipt(id)
+    if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
+    // Copy first, then the row, then the original: the photo always exists
+    // in one of the two places.
+    const copied = await copyToDeleted(row.s3_key)
     await deleteReceipt(id)
+    if (copied) await removeOriginal(row.s3_key)
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
