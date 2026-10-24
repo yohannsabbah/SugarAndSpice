@@ -185,6 +185,31 @@ export async function upsertItem({ merchant_sku, display_name }) {
   return data.id
 }
 
+// Ids for many no-SKU items by name, in one select and one insert, filling
+// the same cache as upsertItem.
+async function itemIdsByName(names) {
+  const missing = [...new Set(names)].filter((n) => !itemCache.has(`name:${n}`))
+  if (missing.length) {
+    const { data: found, error } = await supabase
+      .from('items')
+      .select('id, display_name')
+      .is('merchant_sku', null)
+      .in('display_name', missing)
+    if (error) throw error
+    for (const r of found) itemCache.set(`name:${r.display_name}`, r.id)
+    const toCreate = missing.filter((n) => !itemCache.has(`name:${n}`))
+    if (toCreate.length) {
+      const { data: created, error: e2 } = await supabase
+        .from('items')
+        .insert(toCreate.map((n) => ({ merchant_sku: null, display_name: n, category: inferCategory(n) })))
+        .select('id, display_name')
+      if (e2) throw e2
+      for (const r of created) itemCache.set(`name:${r.display_name}`, r.id)
+    }
+  }
+  return new Map(names.map((n) => [n, itemCache.get(`name:${n}`)]))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // wolt_orders — replace all orders for a period (idempotent re-runs).
 // Children (wolt_order_items) cascade-delete via FK.
@@ -212,16 +237,13 @@ const ORDER_ITEMS_CHUNK = 1000
 // one per order: a purchases CSV has hundreds of orders, and one request per
 // order ran past the host's time limit (504).
 export async function insertWoltOrderItems(lines) {
+  // CSV purchases don't include SKU, so items resolve by name.
+  const ids = await itemIdsByName(lines.map((l) => l.item.item_name))
   const enriched = []
   for (const { orderId, item: it } of lines) {
-    // Resolve item_id (creates items as needed; upsertItem caches by name).
-    const itemId = await upsertItem({
-      merchant_sku: null, // CSV purchases don't include SKU
-      display_name: it.item_name,
-    })
     enriched.push({
       order_id: orderId,
-      item_id: itemId,
+      item_id: ids.get(it.item_name),
       item_name: it.item_name,
       merchant_sku: null,
       quantity: it.quantity,
