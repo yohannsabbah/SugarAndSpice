@@ -291,8 +291,10 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                 <th>Month</th>
                 <th style={{ textAlign: 'right' }}>Store</th>
                 <th style={{ textAlign: 'right' }}>Wolt (after fees)</th>
+                <th style={{ textAlign: 'right' }}>Income</th>
                 <th style={{ textAlign: 'right' }}>Expenses</th>
                 <th style={{ textAlign: 'right' }}>Salary</th>
+                <th style={{ textAlign: 'right' }}>Total expenses</th>
                 <th style={{ textAlign: 'right' }}>Profit</th>
                 <th style={{ textAlign: 'right' }} title="VAT on sales minus reclaimable VAT on Wolt fees and expenses. Not part of profit.">
                   VAT to pay
@@ -323,8 +325,19 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                       href="/admin/wolt"
                       missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
                     />
+                    <MoneyCell
+                      value={addUp([r.store, r.wolt])}
+                      incomplete={gaps.includes('store') || gaps.includes('wolt')}
+                      strong
+                    />
                     <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
                     <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/shifts" negative />
+                    <MoneyCell
+                      value={addUp([r.expenses, r.salary])}
+                      incomplete={gaps.includes('expenses') || gaps.includes('salary')}
+                      negative
+                      strong
+                    />
                     <td
                       style={{
                         textAlign: 'right',
@@ -391,14 +404,28 @@ function ViewToggle({ view, searchParams }) {
   )
 }
 
+// Sum of money cells: each part is { incl, excl }, a number (no VAT), or null.
+// Returns null when every part is null.
+function addUp(parts) {
+  const present = parts.filter((p) => p != null)
+  if (!present.length) return null
+  return present.reduce(
+    (sum, p) => typeof p === 'number'
+      ? { incl: sum.incl + p, excl: sum.excl + p }
+      : { incl: sum.incl + p.incl, excl: sum.excl + p.excl },
+    { incl: 0, excl: 0 },
+  )
+}
+
 function signed(amount) {
   return `${amount < 0 ? '−' : ''}${ILS.format(Math.abs(amount))}`
 }
 
 // value: a number (no VAT, e.g. salary) or { incl, excl } (shows excl, with
 // the VAT-included amount in small text under it). `extra` adds one more
-// small line under the amount.
-function MoneyCell({ value, missing, href, missingLabel, negative, extra }) {
+// small line under the amount. `strong` marks a subtotal; `incomplete` adds
+// "~" when some of its parts are missing.
+function MoneyCell({ value, missing, href, missingLabel, negative, extra, strong, incomplete }) {
   const hasValue = value != null
   const excl = typeof value === 'number' ? value : value?.excl
   const sign = negative && excl > 0 ? '−' : ''
@@ -406,10 +433,15 @@ function MoneyCell({ value, missing, href, missingLabel, negative, extra }) {
     <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
       {hasValue && (
         <>
-          <div>{sign}{ILS.format(excl)}</div>
+          <div
+            style={strong ? { fontWeight: 700, color: incomplete ? 'var(--fg-muted)' : undefined } : undefined}
+            title={incomplete ? 'Incomplete: some data is missing' : undefined}
+          >
+            {incomplete ? '~ ' : ''}{sign}{ILS.format(excl)}
+          </div>
           {typeof value === 'object' && (
             <div className="muted" style={{ fontSize: '0.72rem' }}>
-              {sign}{ILS.format(value.incl)} incl. VAT
+              {incomplete ? '~ ' : ''}{sign}{ILS.format(value.incl)} incl. VAT
             </div>
           )}
           {extra && <div className="muted" style={{ fontSize: '0.72rem' }}>{extra}</div>}
