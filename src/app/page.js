@@ -9,10 +9,11 @@ export default function HomePage() {
         <ReceiptButton />
       </div>
       <BrandTitle href={null} />
-      <div className="card">
+      <div className="card stack">
         <Link href="/employee" className="btn btn-pink btn-lg btn-block">
           Start a shift
         </Link>
+        <ReceiptButton variant="large" />
       </div>
     </div>
   )
