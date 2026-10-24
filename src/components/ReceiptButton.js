@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { downscaleToJpeg, sha256Hex } from '@/lib/receipts/prepareImage'
+import { downscaleToJpeg } from '@/lib/receipts/prepareImage'
 import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
 
 // Short and fixed: the employee only needs to know the photo is not saved yet.
@@ -30,9 +30,8 @@ function lastEmployeeId() {
 // and records it. A duplicate photo also comes back OK, so the employee sees
 // "Done" either way.
 async function uploadReceipt(file) {
-  let sha256, photo
+  let photo
   try {
-    sha256 = await sha256Hex(file)
     photo = await downscaleToJpeg(file)
   } catch (e) {
     // The file itself is unreadable (not an image, or discarded by the phone).
@@ -43,7 +42,6 @@ async function uploadReceipt(file) {
 
   const form = new FormData()
   form.append('photo', photo, 'receipt.jpg')
-  form.append('sha256', sha256)
   form.append('fileName', file.name)
   const employeeId = lastEmployeeId()
   if (employeeId) form.append('employeeId', employeeId)

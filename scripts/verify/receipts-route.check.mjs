@@ -22,11 +22,11 @@ async function post(fields) {
 
 const photo = (bytes = JPEG) => new Blob([bytes], { type: 'image/jpeg' })
 
+// The server hashes the stored JPEG itself; the browser sends no hash.
 const cases = [
-  ['no photo', { sha256: SHA }, 400, /photo/],
-  ['bad sha256', { photo: photo(), sha256: 'nothex' }, 400, /sha256/],
-  ['not a JPEG', { photo: new Blob(['hello'], { type: 'image/jpeg' }), sha256: SHA }, 400, /JPEG/],
-  ['too large', { photo: photo(Buffer.concat([JPEG, Buffer.alloc(4 * 1024 * 1024)])), sha256: SHA }, 400, /large/],
+  ['no photo', { fileName: 'x.jpg' }, 400, /photo/],
+  ['not a JPEG', { photo: new Blob(['hello'], { type: 'image/jpeg' }) }, 400, /JPEG/],
+  ['too large', { photo: photo(Buffer.concat([JPEG, Buffer.alloc(4 * 1024 * 1024)])) }, 400, /large/],
 ]
 
 let failed = 0
@@ -39,15 +39,17 @@ for (const [name, fields, status, errRe] of cases) {
 }
 
 if (process.env.RECEIPTS_DB !== 'skip') {
-  const first = await post({ photo: photo(), sha256: SHA, fileName: 'verify.jpg', employeeId: 'not-a-uuid' })
+  const first = await post({ photo: photo(), fileName: 'verify.jpg', employeeId: 'not-a-uuid' })
   if (first.status !== 200 || typeof first.body?.id !== 'string') {
     failed++
     console.error(`FAIL first upload: ${first.status} ${JSON.stringify(first.body)}`)
   }
-  const again = await post({ photo: photo(), sha256: SHA, fileName: 'verify.jpg' })
+  // Same bytes, another file name, and a misleading client hash: the server
+  // must still find the first row by its own hash of the bytes.
+  const again = await post({ photo: photo(), fileName: 'IMG_0002.jpeg', sha256: 'ff'.repeat(32) })
   if (again.status !== 200 || again.body?.id !== first.body?.id) {
     failed++
-    console.error(`FAIL duplicate returns the same id: ${again.status} ${JSON.stringify(again.body)}`)
+    console.error(`FAIL same bytes return the same id: ${again.status} ${JSON.stringify(again.body)}`)
   }
   if (first.body?.id) console.log(`created receipt ${first.body.id} (sha ${SHA}) — delete it after the check`)
 }

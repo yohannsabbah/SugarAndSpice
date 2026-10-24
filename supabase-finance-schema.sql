@@ -636,6 +636,13 @@ create index if not exists receipts_uploaded_at_idx
 create index if not exists receipts_status_idx
   on receipts (parse_status) where parse_status <> 'reviewed';
 
+-- Added for extraction (2026-10-23): the printed time, and the duplicate mark.
+-- A duplicate is kept, greyed on the admin page, and left out of exports.
+alter table receipts add column if not exists purchased_time time;
+alter table receipts add column if not exists duplicate_of uuid references receipts(id) on delete set null;
+create index if not exists receipts_dup_lookup_idx
+  on receipts (purchased_at, total);
+
 
 ------------------------------------------------------------------------
 -- RLS for receipts
