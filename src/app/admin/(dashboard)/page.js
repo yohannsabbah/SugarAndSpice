@@ -279,7 +279,19 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
         />
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="table">
+          <table className="table summary-table">
+            {/* Shaded columns are the subtotals: Income, Total expenses, Profit. */}
+            <colgroup>
+              <col />
+              <col />
+              <col />
+              <col className="summary-subtotal" />
+              <col />
+              <col />
+              <col className="summary-subtotal" />
+              <col className="summary-subtotal" />
+              <col />
+            </colgroup>
             <thead>
               <tr>
                 <th>Month</th>

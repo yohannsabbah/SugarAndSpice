@@ -395,6 +395,19 @@ textarea {
   border-bottom: none;
 }
 
+/* Admin overview month-by-month table. Cells have 1-3 lines, so align them to
+   the top: the main amounts of a row then share one line. Wrapped headers sit
+   on the bottom, just above the numbers. */
+.summary-table td {
+  vertical-align: top;
+}
+.summary-table th {
+  vertical-align: bottom;
+}
+.summary-subtotal {
+  background: var(--bg);
+}
+
 /* ----- /tv display screen (Apple TV in a vertical orientation) ----- */
 .tv-stage {
   position: fixed;
