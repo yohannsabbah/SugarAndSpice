@@ -3,40 +3,95 @@
 import { useState } from 'react'
 import { vatAmount } from '@/lib/receipts/money'
 import { needsCheck, sortReceipts } from '@/lib/receipts/sortReceipts'
+import { RECEIPT_CATEGORIES, categoryLabel } from '@/lib/receipts/categories'
+import ReceiptsSummary from './ReceiptsSummary'
 
 const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// Inline-edit table. Each field saves on blur or Enter through
-// PATCH /api/admin/receipts/[id]; a failed save rolls the row back.
+// The fields the Edit button opens, as the input shows them.
+function draftOf(r) {
+  const s = (v) => (v === null || v === undefined ? '' : String(v))
+  return {
+    purchased_at: s(r.purchased_at),
+    purchased_time: s(r.purchased_time),
+    vendor: s(r.vendor),
+    category: s(r.category),
+    receipt_number: s(r.receipt_number),
+    total: r.total === null || r.total === undefined ? '' : Number(r.total).toFixed(2),
+  }
+}
+
+// Only the fields the owner changed, as the API expects them.
+function changesOf(r, draft) {
+  const before = draftOf(r)
+  const change = {}
+  for (const [key, raw] of Object.entries(draft)) {
+    const v = raw.trim()
+    if (v === before[key]) continue
+    change[key] = v === '' ? null : key === 'total' ? Number(v) : v
+  }
+  return change
+}
+
+// Read-only table. Edit opens the inputs for one row, and Save sends the
+// changed fields through PATCH /api/admin/receipts/[id]. Duplicate adds a
+// second row on the same photo, for a photo that shows two receipts.
 export default function ReceiptsTable({ initial }) {
   const [rows, setRows] = useState(() => sortReceipts(initial))
   const [savingId, setSavingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [editing, setEditing] = useState(null) // { id, draft }
 
-  async function patch(id, change) {
-    const before = rows
-    setSavingId(id)
-    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...change } : r)))
+  function alertRow(id, message) {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, _error: message } : r)))
+  }
+
+  function startEdit(r) {
+    setConfirmDelete(null)
+    setEditing({ id: r.id, draft: draftOf(r) })
+  }
+
+  function setDraft(key, value) {
+    setEditing((e) => ({ ...e, draft: { ...e.draft, [key]: value } }))
+  }
+
+  async function save(r) {
+    const change = changesOf(r, editing.draft)
+    if (Object.keys(change).length === 0) {
+      setEditing(null)
+      return
+    }
+    setSavingId(r.id)
     try {
-      const res = await fetch(`/api/admin/receipts/${id}`, {
+      const res = await fetch(`/api/admin/receipts/${r.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(change),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
-      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...j.receipt } : r)))
+      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...j.receipt, _error: null } : x)))
+      setEditing(null)
     } catch (e) {
       console.warn('Receipt update failed:', e)
-      alertRow(id, e.message)
-      setRows(before)
+      alertRow(r.id, e.message) // the inputs stay open with the owner's values
     } finally {
       setSavingId(null)
     }
   }
 
-  function alertRow(id, message) {
-    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, _error: message } : r)))
+  // Clears the duplicate mark. The only change made without the Edit button.
+  async function notDuplicate(id) {
+    setSavingId(id)
+    const res = await fetch(`/api/admin/receipts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duplicate_of: null }),
+    }).catch(() => null)
+    const j = res ? await res.json().catch(() => ({})) : {}
+    setSavingId(null)
+    if (res?.ok) setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...j.receipt } : r)))
+    else alertRow(id, j.error || 'Update failed')
   }
 
   // Reads the photo with Claude again. Keeps the signed photo link and the
@@ -51,6 +106,25 @@ export default function ReceiptsTable({ initial }) {
     else alertRow(id, j.error || 'Retry failed')
   }
 
+  // The new row goes right under its photo's row and opens for editing.
+  async function duplicate(r) {
+    setSavingId(r.id)
+    const res = await fetch(`/api/admin/receipts/${r.id}/copy`, { method: 'POST' }).catch(() => null)
+    const j = res ? await res.json().catch(() => ({})) : {}
+    setSavingId(null)
+    if (!res?.ok || !j.receipt) {
+      alertRow(r.id, j.error || 'Duplicate failed')
+      return
+    }
+    const copy = { ...j.receipt, imageUrl: r.imageUrl }
+    setRows((rs) => {
+      const i = rs.findIndex((x) => x.id === r.id)
+      return [...rs.slice(0, i + 1), copy, ...rs.slice(i + 1)]
+    })
+    setConfirmDelete(null)
+    setEditing({ id: copy.id, draft: draftOf(copy) })
+  }
+
   async function remove(id) {
     setConfirmDelete(null)
     setSavingId(id)
@@ -61,136 +135,159 @@ export default function ReceiptsTable({ initial }) {
   }
 
   return (
-    <div className="receipts-table-wrap">
-      <table className="table receipts-table">
-        <thead>
-          <tr>
-            <th>Photo</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Vendor</th>
-            <th>Receipt no.</th>
-            <th style={{ textAlign: 'right' }}>Amount</th>
-            <th style={{ textAlign: 'right' }}>VAT</th>
-            <th>Uploaded by</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
-              key={r.id}
-              data-receipt-id={r.id}
-              className={r.duplicate_of ? 'row-dim' : ''}
-              style={savingId === r.id ? { opacity: 0.6 } : null}
-            >
-              <td>
-                <a href={r.imageUrl} target="_blank" rel="noreferrer">
-                  <img className="receipt-thumb" src={r.imageUrl} alt="Receipt photo" loading="lazy" />
-                </a>
-              </td>
-              <td>
-                <Field type="date" value={r.purchased_at} onSave={(v) => patch(r.id, { purchased_at: v })} />
-              </td>
-              <td>
-                <Field type="time" step="1" value={r.purchased_time} onSave={(v) => patch(r.id, { purchased_time: v })} />
-              </td>
-              <td>
-                <Field value={r.vendor} dir="auto" onSave={(v) => patch(r.id, { vendor: v })} />
-              </td>
-              <td>
-                <Field value={r.receipt_number} onSave={(v) => patch(r.id, { receipt_number: v })} />
-              </td>
-              <td style={{ textAlign: 'right' }}>
-                <Field
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={r.total === null || r.total === undefined ? null : Number(r.total).toFixed(2)}
-                  onSave={(v) => patch(r.id, { total: v === null ? null : Number(v) })}
-                />
-              </td>
-              <td className="num" style={{ textAlign: 'right' }}>
-                {r.total === null || r.total === undefined ? '—' : ILSp.format(vatAmount(r.total))}
-              </td>
-              <td className="muted">{r.employees?.name || '—'}</td>
-              <td>
-                <span className={`badge receipt-status receipt-status-${r.parse_status}`} title={r.parse_error || ''}>
-                  {r.parse_status}
-                </span>
-                {needsCheck(r) && (
-                  <span className="badge receipt-status receipt-status-check" title="Claude was not sure. Check this row against the photo.">
-                    check
-                  </span>
-                )}
-                {r.duplicate_of && (
-                  <div className="receipt-dup">
-                    Duplicate ·{' '}
-                    <button type="button" className="link-button" onClick={() => patch(r.id, { duplicate_of: null })}>
-                      Not a duplicate
-                    </button>
-                  </div>
-                )}
-                {(r.parse_status === 'pending' || r.parse_status === 'error') && (
-                  <div>
-                    <button type="button" className="link-button" disabled={savingId === r.id} onClick={() => retry(r.id)}>
-                      Retry
-                    </button>
-                  </div>
-                )}
-                {r._error && <div className="receipt-row-error">{r._error}</div>}
-              </td>
-              <td style={{ whiteSpace: 'nowrap' }}>
-                {confirmDelete === r.id ? (
-                  <>
-                    <button type="button" className="btn btn-danger receipt-small-btn" onClick={() => remove(r.id)}>
-                      Delete
-                    </button>{' '}
-                    <button type="button" className="btn btn-ghost receipt-small-btn" onClick={() => setConfirmDelete(null)}>
-                      Keep
-                    </button>
-                  </>
-                ) : (
-                  <button type="button" className="btn btn-ghost receipt-small-btn" onClick={() => setConfirmDelete(r.id)}>
-                    Delete
-                  </button>
-                )}
-              </td>
+    <div className="stack" style={{ gap: 20 }}>
+      <ReceiptsSummary rows={rows} />
+
+      <div className="receipts-table-wrap">
+        <table className="table receipts-table">
+          <thead>
+            <tr>
+              <th>Photo</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Vendor</th>
+              <th>Category</th>
+              <th>Receipt no.</th>
+              <th style={{ textAlign: 'right' }}>Amount</th>
+              <th style={{ textAlign: 'right' }}>VAT</th>
+              <th>Uploaded by</th>
+              <th>Status</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const draft = editing?.id === r.id ? editing.draft : null
+              const busy = savingId === r.id
+              return (
+                <tr
+                  key={r.id}
+                  data-receipt-id={r.id}
+                  className={r.duplicate_of ? 'row-dim' : ''}
+                  style={busy ? { opacity: 0.6 } : null}
+                  onKeyDown={
+                    draft
+                      ? (e) => {
+                          if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(r)
+                          if (e.key === 'Escape') setEditing(null)
+                        }
+                      : undefined
+                  }
+                >
+                  <td>
+                    <a href={r.imageUrl} target="_blank" rel="noreferrer">
+                      <img className="receipt-thumb" src={r.imageUrl} alt="Receipt photo" loading="lazy" />
+                    </a>
+                  </td>
+                  {draft ? (
+                    <>
+                      <td><Input type="date" value={draft.purchased_at} onChange={(v) => setDraft('purchased_at', v)} /></td>
+                      <td><Input type="time" step="1" value={draft.purchased_time} onChange={(v) => setDraft('purchased_time', v)} /></td>
+                      <td><Input dir="auto" value={draft.vendor} onChange={(v) => setDraft('vendor', v)} /></td>
+                      <td>
+                        <select className="input receipt-input" value={draft.category} onChange={(e) => setDraft('category', e.target.value)}>
+                          <option value="">—</option>
+                          {RECEIPT_CATEGORIES.map((c) => (
+                            <option key={c} value={c}>{categoryLabel(c)}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td><Input value={draft.receipt_number} onChange={(v) => setDraft('receipt_number', v)} /></td>
+                      <td style={{ textAlign: 'right' }}>
+                        <Input type="number" step="0.01" min="0" value={draft.total} onChange={(v) => setDraft('total', v)} />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="receipt-mono">{r.purchased_at || '—'}</td>
+                      <td className="receipt-mono">{r.purchased_time ? r.purchased_time.slice(0, 5) : '—'}</td>
+                      <td dir="auto">{r.vendor || '—'}</td>
+                      <td className={r.category ? '' : 'muted'}>{r.category ? categoryLabel(r.category) : '—'}</td>
+                      <td className="receipt-mono">{r.receipt_number || '—'}</td>
+                      <td className="num" style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {r.total === null || r.total === undefined ? '—' : ILSp.format(r.total)}
+                      </td>
+                    </>
+                  )}
+                  <td className="num" style={{ textAlign: 'right' }}>
+                    {r.total === null || r.total === undefined ? '—' : ILSp.format(vatAmount(r.total))}
+                  </td>
+                  <td className="muted">{r.employees?.name || '—'}</td>
+                  <td>
+                    <span className={`badge receipt-status receipt-status-${r.parse_status}`} title={r.parse_error || ''}>
+                      {r.parse_status}
+                    </span>
+                    {needsCheck(r) && (
+                      <span className="badge receipt-status receipt-status-check" title="Claude was not sure. Check this row against the photo.">
+                        check
+                      </span>
+                    )}
+                    {r.duplicate_of && (
+                      <div className="receipt-dup">
+                        Duplicate ·{' '}
+                        <button type="button" className="link-button" disabled={busy} onClick={() => notDuplicate(r.id)}>
+                          Not a duplicate
+                        </button>
+                      </div>
+                    )}
+                    {(r.parse_status === 'pending' || r.parse_status === 'error') && (
+                      <div>
+                        <button type="button" className="link-button" disabled={busy} onClick={() => retry(r.id)}>
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                    {r._error && <div className="receipt-row-error">{r._error}</div>}
+                  </td>
+                  <td className="receipt-actions">
+                    {draft ? (
+                      <>
+                        <button type="button" className="btn btn-primary receipt-small-btn" disabled={busy} onClick={() => save(r)}>
+                          Save
+                        </button>
+                        <button type="button" className="btn btn-ghost receipt-small-btn" disabled={busy} onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : confirmDelete === r.id ? (
+                      <>
+                        <button type="button" className="btn btn-danger receipt-small-btn" onClick={() => remove(r.id)}>
+                          Delete
+                        </button>
+                        <button type="button" className="btn btn-ghost receipt-small-btn" onClick={() => setConfirmDelete(null)}>
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="btn btn-ghost receipt-small-btn" disabled={busy} onClick={() => startEdit(r)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost receipt-small-btn"
+                          disabled={busy}
+                          title="This photo shows two receipts: add another row on it"
+                          onClick={() => duplicate(r)}
+                        >
+                          Duplicate
+                        </button>
+                        <button type="button" className="btn btn-ghost receipt-small-btn" disabled={busy} onClick={() => setConfirmDelete(r.id)}>
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
-// An input that saves when it loses focus or on Enter, only if the value changed.
-function Field({ value, onSave, ...props }) {
-  const shown = value === null || value === undefined ? '' : String(value)
-  const [draft, setDraft] = useState(shown)
-  const [lastShown, setLastShown] = useState(shown)
-  if (shown !== lastShown) {
-    setLastShown(shown)
-    setDraft(shown)
-  }
-
-  function commit() {
-    const next = draft.trim()
-    if (next === shown) return
-    onSave(next === '' ? null : next)
-  }
-
-  return (
-    <input
-      className="input receipt-input"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur()
-      }}
-      {...props}
-    />
-  )
+function Input({ onChange, ...props }) {
+  return <input className="input receipt-input" onChange={(e) => onChange(e.target.value)} {...props} />
 }

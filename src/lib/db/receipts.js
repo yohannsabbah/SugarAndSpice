@@ -87,6 +87,43 @@ export async function updateReceiptIfStatus(id, statuses, fields) {
   return data
 }
 
+// A second row on the photo of `row`, for a photo that shows two receipts.
+// It has no image hash (the first row keeps the photo's hash) and starts
+// reviewed, so extraction never overwrites it. Receipt number and amount stay
+// empty for the owner to fill in, so the month total does not count the
+// first receipt twice.
+export async function createReceiptCopy(row) {
+  const { data, error } = await supabase
+    .from('receipts')
+    .insert({
+      s3_key: row.s3_key,
+      file_name: row.file_name,
+      image_sha256: null,
+      uploaded_at: row.uploaded_at,
+      uploaded_by: row.uploaded_by,
+      purchased_at: row.purchased_at,
+      purchased_time: row.purchased_time,
+      vendor: row.vendor,
+      category: row.category,
+      vat_rate: row.vat_rate,
+      parse_status: 'reviewed',
+      reviewed_at: new Date().toISOString(),
+    })
+    .select('*, employees(name)')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function countReceiptsWithKey(s3Key) {
+  const { count, error } = await supabase
+    .from('receipts')
+    .select('id', { count: 'exact', head: true })
+    .eq('s3_key', s3Key)
+  if (error) throw error
+  return count ?? 0
+}
+
 // Removes the row only. The admin route moves the photo to receipts/deleted/ first.
 export async function deleteReceipt(id) {
   const { error } = await supabase.from('receipts').delete().eq('id', id)

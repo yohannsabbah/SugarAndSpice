@@ -1,7 +1,7 @@
 import { buildExtractionRequest, parseExtraction, plausibleDate, EXTRACTION_MODEL } from '../../src/lib/receipts/extraction.js'
 
 const ok = (json) => ({ stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(json) }] })
-const ref = { purchased_at: '2026-10-21', purchased_time: '20:23:38', vendor: ' גם סטוק נווה שאנן ', receipt_number: '614461', total: 48.6, legible: true }
+const ref = { purchased_at: '2026-10-21', purchased_time: '20:23:38', vendor: ' גם סטוק נווה שאנן ', receipt_number: '614461', total: 48.6, category: 'ingredients', legible: true }
 function throws(fn) {
   try {
     fn()
@@ -26,7 +26,10 @@ const cases = [
   ['model id', req.model, 'us.anthropic.claude-haiku-4-5-20251001-v1:0'],
   ['no effort param', 'effort' in req.output_config, false],
   ['image before text', req.messages[0].content[0].type, 'image'],
-  ['six required fields', req.output_config.format.schema.required.length, 6],
+  ['seven required fields', req.output_config.format.schema.required.length, 7],
+  ['category kept', parseExtraction(ok(ref)).category, 'ingredients'],
+  ['unknown category → null', parseExtraction(ok({ ...ref, category: 'snacks' })).category, null],
+  ['prompt lists categories', req.messages[0].content[1].text.includes('packaging'), true],
   ['no thinking param', 'thinking' in req, false],
   ['date 2 days before upload kept', plausibleDate('2026-10-21', '2026-10-23T06:11:00Z'), '2026-10-21'],
   ['DD/MM misread (March for October) → null', plausibleDate('2026-03-10', '2026-10-23T06:11:00Z'), null],

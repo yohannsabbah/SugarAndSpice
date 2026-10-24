@@ -2,7 +2,6 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { countPendingReceipts, listReceiptsForMonth } from '@/lib/db/receipts'
 import { currentIsraelMonth } from '@/lib/receipts/month'
-import { summarizeReceipts } from '@/lib/receipts/money'
 import { s3Bucket, s3Client } from '@/lib/s3'
 import ReceiptsTable from './ReceiptsTable'
 import PendingSweeper from './PendingSweeper'
@@ -10,8 +9,6 @@ import '../wolt/wolt.css'
 import './receipts.css'
 
 export const dynamic = 'force-dynamic'
-
-const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function monthLabelOf(month) {
   return new Date(`${month}-01T12:00:00`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })
@@ -45,7 +42,6 @@ export default async function ReceiptsPage({ searchParams }) {
     )
   }
 
-  const summary = summarizeReceipts(rows)
   const q = `?month=${month}`
 
   return (
@@ -53,9 +49,6 @@ export default async function ReceiptsPage({ searchParams }) {
       <div className="row receipts-head">
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Receipts — {monthLabelOf(month)}</h1>
-          <div className="muted" style={{ fontSize: '0.9rem', marginTop: 4 }}>
-            {summary.count} receipt{summary.count === 1 ? '' : 's'} · {ILS.format(summary.total)} · VAT {ILS.format(summary.vat)}
-          </div>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <a className="btn btn-ghost" href={`/api/admin/receipts/export.csv${q}`}>Download CSV</a>

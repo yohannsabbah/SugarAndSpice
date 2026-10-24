@@ -2,6 +2,8 @@
 // answer. Pure: no SDK import, so the verify scripts can run it without a key.
 // processReceipt.js sends it through AnthropicBedrock (bedrock-runtime InvokeModel).
 
+import { CATEGORY_HINTS, RECEIPT_CATEGORIES } from './categories.js'
+
 // Claude Haiku 4.5 through the US cross-region inference profile. The owner's
 // AWS account is not approved for the 5.x models on Bedrock. Haiku 4.5
 // rejects `effort`, so the request does not send it.
@@ -12,13 +14,14 @@ const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
 export const RECEIPT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['purchased_at', 'purchased_time', 'vendor', 'receipt_number', 'total', 'legible'],
+  required: ['purchased_at', 'purchased_time', 'vendor', 'receipt_number', 'total', 'category', 'legible'],
   properties: {
     purchased_at: nullable('string'),
     purchased_time: nullable('string'),
     vendor: nullable('string'),
     receipt_number: nullable('string'),
     total: nullable('number'),
+    category: { anyOf: [{ type: 'string', enum: RECEIPT_CATEGORIES }, { type: 'null' }] },
     legible: { type: 'boolean' },
   },
 }
@@ -28,7 +31,8 @@ const PROMPT =
   'Read: purchased_at as YYYY-MM-DD; purchased_time as HH:MM:SS (24-hour) if printed; ' +
   'vendor as the business name printed at the top; ' +
   "receipt_number as the receipt or tax-invoice number (מס' קבלה / חשבונית מס); " +
-  'total as the final amount paid (סה"כ לתשלום) as a number. ' +
+  'total as the final amount paid (סה"כ לתשלום) as a number; ' +
+  `category as what the purchase was for, one of: ${CATEGORY_HINTS}. ` +
   'Use null for any field you cannot read with confidence. A wrong value is worse than null. ' +
   'Set legible to false if the photo is not a readable receipt.'
 
@@ -106,6 +110,7 @@ export function parseExtraction(response) {
     vendor: text(raw.vendor),
     receipt_number: text(raw.receipt_number),
     total: amount(raw.total),
+    category: RECEIPT_CATEGORIES.includes(raw.category) ? raw.category : null,
   }
   const confident = raw.legible === true && fields.total !== null && fields.purchased_at !== null
   return { ...fields, ai_confidence: confident ? 'high' : 'low', raw }

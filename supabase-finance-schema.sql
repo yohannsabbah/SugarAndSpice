@@ -643,6 +643,14 @@ alter table receipts add column if not exists duplicate_of uuid references recei
 create index if not exists receipts_dup_lookup_idx
   on receipts (purchased_at, total);
 
+-- Added 2026-10-24: what the receipt paid for (see src/lib/receipts/categories.js),
+-- and second rows on one photo. A second row has no image hash, so
+-- image_sha256 accepts null (unique still holds for the photo's own row).
+alter table receipts add column if not exists category text;
+alter table receipts alter column image_sha256 drop not null;
+create index if not exists receipts_s3_key_idx
+  on receipts (s3_key);
+
 
 ------------------------------------------------------------------------
 -- RLS for receipts

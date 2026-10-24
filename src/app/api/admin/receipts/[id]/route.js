@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
-import { deleteReceipt, getReceipt, updateReceipt } from '@/lib/db/receipts'
+import { countReceiptsWithKey, deleteReceipt, getReceipt, updateReceipt } from '@/lib/db/receipts'
 import { VAT_RATE, vatAmount } from '@/lib/receipts/money'
+import { RECEIPT_CATEGORIES } from '@/lib/receipts/categories'
 import { copyToDeleted, removeOriginal } from '@/lib/receipts/archive'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,10 @@ const FIELDS = {
   vendor: text('vendor'),
   receipt_number: text('receipt_number'),
   notes: text('notes'),
+  category(v) {
+    if (v === null || RECEIPT_CATEGORIES.includes(v)) return v
+    throw new Error(`category must be one of: ${RECEIPT_CATEGORIES.join(', ')}`)
+  },
   total(v) {
     if (v === null) return null
     const n = typeof v === 'number' ? v : NaN
@@ -98,7 +103,9 @@ export async function PATCH(req, { params }) {
   }
 }
 
-// DELETE /api/admin/receipts/[id] — removes the row and moves the photo to receipts/deleted/.
+// DELETE /api/admin/receipts/[id] — removes the row and moves the photo to
+// receipts/deleted/. A photo that another row still uses (two receipts in one
+// photo) stays where it is.
 export async function DELETE(req, { params }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -108,6 +115,10 @@ export async function DELETE(req, { params }) {
     const row = await getReceipt(id)
     if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    if ((await countReceiptsWithKey(row.s3_key)) > 1) {
+      await deleteReceipt(id)
+      return NextResponse.json({ ok: true })
     }
     // Copy first, then the row, then the original: the photo always exists
     // in one of the two places.

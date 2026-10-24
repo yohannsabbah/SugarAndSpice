@@ -23,7 +23,7 @@
 }
 
 .receipt-input {
-  min-width: 90px;
+  min-width: 72px;
   padding: 6px 8px;
   font-size: 0.85rem;
 }
@@ -60,4 +60,70 @@
 .receipt-small-btn {
   padding: 4px 10px;
   font-size: 0.8rem;
+}
+
+.receipt-mono {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Stacked, so the wide table keeps its action buttons in view. */
+.receipt-actions {
+  white-space: nowrap;
+}
+.receipt-actions .btn {
+  display: block;
+  width: 100%;
+}
+.receipt-actions .btn + .btn {
+  margin-top: 4px;
+}
+
+/* ── Month pies ───────────────────────────────────────────────────────── */
+.receipts-pies {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+.receipts-pie-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.receipts-legend {
+  flex: 1;
+  min-width: 180px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+.receipts-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 4px;
+}
+.receipts-legend li.active {
+  background: var(--bg);
+}
+.receipts-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.receipts-legend-label {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.receipts-legend-pct {
+  width: 3em;
+  text-align: right;
 }
