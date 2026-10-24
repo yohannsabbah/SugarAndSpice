@@ -17,6 +17,7 @@ import {
   openingHoursSchedule,
   totalOpeningMsInMonth,
 } from '@/lib/openingHours'
+import { hourlyRateFor, isIra, isJenny } from '@/lib/payroll'
 
 const ILSp = new Intl.NumberFormat('en-IL', {
   style: 'currency',
@@ -25,19 +26,9 @@ const ILSp = new Intl.NumberFormat('en-IL', {
   maximumFractionDigits: 2,
 })
 
-const DEFAULT_HOURLY_RATE = 35.4
-const IRA_HOURLY_RATE = 50
 const HIGHLIGHT_ORANGE = '#ffedd5'
 const HIGHLIGHT_YELLOW = '#fef9c3'
 const HIGHLIGHT_RED = '#fde8e8'
-
-function isIra(name) {
-  return name?.trim().toLowerCase() === 'ira'
-}
-
-function isJenny(name) {
-  return name?.trim().toLowerCase() === 'jenny'
-}
 
 function currentMonthYm() {
   const d = new Date()
@@ -54,10 +45,6 @@ function monthRange(ym) {
     from: new Date(y, m - 1, 1).toISOString(),
     to: new Date(y, m, 0, 23, 59, 59, 999).toISOString(),
   }
-}
-
-function hourlyRateFor(name) {
-  return isIra(name) ? IRA_HOURLY_RATE : DEFAULT_HOURLY_RATE
 }
 
 function shiftRowStyle(startedAt, endedAt) {

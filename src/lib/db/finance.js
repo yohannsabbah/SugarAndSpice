@@ -2,6 +2,8 @@ import 'server-only'
 import { supabase } from '@/lib/supabase'
 import { inferCategory } from './wolt.js'
 import { getMonthlyExpenseSummaries } from './expenses.js'
+import { hourlyRateFor, isJenny } from '@/lib/payroll'
+import { shiftDurationMs } from '@/lib/format'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Combined finance helpers — pull income from BOTH channels (Wolt + Nayax)
@@ -23,7 +25,9 @@ function rollupWoltToMonth(periods) {
       net_payout: 0,
       orders: 0,
       fees: 0,
+      periods: 0,
     }
+    m.periods    += 1
     m.gross      += Number(p.gross_sales_incl_vat || 0)
     m.net_sales  += Number(p.net_sales_incl_vat || p.gross_sales_incl_vat || 0)
     m.net_payout += Number(p.net_payout || 0)
@@ -235,3 +239,89 @@ export async function getMonthlyPnL() {
   })
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shift pay per 'YYYY-MM' (Israel time), using the same rates as the Shifts tab.
+// Jenny is left out, the same as the Shifts tab's total to pay.
+const ISRAEL_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' })
+
+async function getMonthlyShiftPay() {
+  const PAGE = 1000
+  const rows = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('started_at, ended_at, employees(name)')
+      .order('started_at')
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    rows.push(...data)
+    if (data.length < PAGE) break
+  }
+
+  const by = new Map()
+  for (const s of rows) {
+    const name = s.employees?.name
+    if (isJenny(name)) continue
+    const month = ISRAEL_DAY.format(new Date(s.started_at)).slice(0, 7)
+    const hours = shiftDurationMs(s.started_at, s.ended_at) / 3_600_000
+    by.set(month, (by.get(month) || 0) + hours * hourlyRateFor(name))
+  }
+  return by
+}
+
+// Month-by-month overview for the admin home: store, Wolt, expenses, salary.
+// Covers every month from the first month with data through the current month,
+// so months with no uploads still show up (and can be flagged as missing).
+// Returns newest first: [{ month, store, wolt, wolt_periods, expenses, salary, total }]
+// Each money field is null when that source has no data for the month.
+// Salary comes from logged shifts (see getMonthlyShiftPay).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getMonthlyOverview() {
+  const [income, expenses, shiftPay] = await Promise.all([
+    getMonthlyIncomeSummaries(),
+    getMonthlyExpenseSummaries().catch((e) => {
+      if (e.missingSchema) return []
+      throw e
+    }),
+    getMonthlyShiftPay(),
+  ])
+
+  const incByMonth = new Map(income.map((i) => [i.month, i]))
+  const expByMonth = new Map(expenses.map((e) => [e.month, e]))
+  const known = [...incByMonth.keys(), ...expByMonth.keys(), ...shiftPay.keys()].sort()
+  if (!known.length) return []
+
+  const now = new Date()
+  const last = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const months = []
+  let [y, m] = known[0].split('-').map(Number)
+  for (;;) {
+    const key = `${y}-${String(m).padStart(2, '0')}`
+    if (key > last) break
+    months.push(key)
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+  }
+
+  return months.reverse().map((month) => {
+    const i = incByMonth.get(month)
+    const e = expByMonth.get(month)
+    const store = i?.instore ? i.instore.net : null
+    const wolt = i?.wolt ? i.wolt.net_payout : null
+    // Salary = shift pay + any expense rows filed under the 'salary' category.
+    const salaryExpenses = e?.by_category?.salary || 0
+    const pay = shiftPay.get(month)
+    const salary = pay == null && !salaryExpenses ? null : (pay || 0) + salaryExpenses
+    const expensesExSalary = e ? e.total - salaryExpenses : null
+    return {
+      month,
+      store,
+      wolt,
+      wolt_periods: i?.wolt?.periods || 0,
+      expenses: expensesExSalary,
+      salary,
+      total: (store || 0) + (wolt || 0) - (expensesExSalary || 0) - (salary || 0),
+    }
+  })
+}

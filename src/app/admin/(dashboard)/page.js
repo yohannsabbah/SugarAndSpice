@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { listEmployees } from '@/lib/db/employees'
 import { listShifts } from '@/lib/db/shifts'
 import { getWoltPeriodSummaries } from '@/lib/db/wolt'
+import { getMonthlyOverview } from '@/lib/db/finance'
+import MonthRangePicker from '@/components/MonthRangePicker'
 import { formatDuration, formatTime } from '@/lib/format'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
@@ -50,11 +52,12 @@ export default async function AdminOverviewPage({ searchParams }) {
   const bounds = monthBoundsFor({ year, month })
   const monthLabel = bounds.startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
-  const [employees, recentShifts, monthShifts, woltPeriods] = await Promise.all([
+  const [employees, recentShifts, monthShifts, woltPeriods, overview] = await Promise.all([
     listEmployees({ includeInactive: true }),
     listShifts({ limit: 20 }),
     listShifts({ from: bounds.start, to: bounds.end, limit: 1000 }),
     getWoltPeriodSummaries().catch(() => []),
+    getMonthlyOverview().catch(() => []),
   ])
 
   const latestWolt = woltPeriods[woltPeriods.length - 1] || null
@@ -70,6 +73,8 @@ export default async function AdminOverviewPage({ searchParams }) {
         <StatCard label="On shift now" value={openShifts.length} />
         <StatCard label="Total employees" value={employees.length} />
       </div>
+
+      <MonthlySummaryCard rows={overview} from={sp?.from} to={sp?.to} />
 
       {/* Section tiles — direct entry to each admin area */}
       <div
@@ -179,6 +184,168 @@ export default async function AdminOverviewPage({ searchParams }) {
         )}
       </div>
     </div>
+  )
+}
+
+// Wolt pays out in two half-month periods, so a month needs both to be complete.
+const WOLT_PERIODS_PER_MONTH = 2
+
+const YM = /^\d{4}-\d{2}$/
+// The business's first month. The month summary never goes earlier.
+const FIRST_MONTH = '2026-01'
+// Months the summary shows by default, counting the current month.
+const DEFAULT_MONTHS = 6
+
+// Every 'YYYY-MM' from `from` to `to`, oldest first.
+function monthsBetween(from, to) {
+  const months = []
+  let [y, m] = from.split('-').map(Number)
+  for (let key = from; key <= to; ) {
+    months.push(key)
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+    key = `${y}-${String(m).padStart(2, '0')}`
+  }
+  return months
+}
+
+function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  // The range defaults to the last DEFAULT_MONTHS months and can reach back to
+  // FIRST_MONTH. Months with no data become empty rows, so every column is
+  // flagged as missing.
+  const back = new Date(now.getFullYear(), now.getMonth() - (DEFAULT_MONTHS - 1), 1)
+  const backMonth = `${back.getFullYear()}-${String(back.getMonth() + 1).padStart(2, '0')}`
+  const defaultFrom = backMonth > FIRST_MONTH ? backMonth : FIRST_MONTH
+  const inRange = (ym) => YM.test(ym || '') && ym >= FIRST_MONTH && ym <= currentMonth
+  let from = inRange(fromParam) ? fromParam : defaultFrom
+  let to = inRange(toParam) ? toParam : currentMonth
+  if (from > to) [from, to] = [to, from]
+  const byMonth = new Map(allRows.map((r) => [r.month, r]))
+  const rows = monthsBetween(from, to)
+    .reverse()
+    .map((month) => byMonth.get(month) || {
+      month, store: null, wolt: null, wolt_periods: 0, expenses: null, salary: null, total: 0,
+    })
+
+  const gapsOf = (r) => {
+    if (r.month === currentMonth) return []
+    const gaps = []
+    if (r.store == null) gaps.push('store')
+    if (r.wolt_periods < WOLT_PERIODS_PER_MONTH) gaps.push('wolt')
+    if (r.expenses == null) gaps.push('expenses')
+    if (r.salary == null) gaps.push('salary')
+    return gaps
+  }
+  const incompleteCount = rows.filter((r) => gapsOf(r).length > 0).length
+
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+        <div className="row" style={{ gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Month by month</h2>
+          {incompleteCount > 0 && (
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--warning)' }}>
+              {incompleteCount} month{incompleteCount > 1 ? 's' : ''} missing uploads
+            </span>
+          )}
+        </div>
+        <MonthRangePicker
+          from={from}
+          to={to}
+          defaultFrom={defaultFrom}
+          min={FIRST_MONTH}
+          max={currentMonth}
+          defaultLabel={`Last ${DEFAULT_MONTHS} months`}
+        />
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th style={{ textAlign: 'right' }}>Store</th>
+              <th style={{ textAlign: 'right' }}>Wolt</th>
+              <th style={{ textAlign: 'right' }}>Expenses</th>
+              <th style={{ textAlign: 'right' }}>Salary</th>
+              <th style={{ textAlign: 'right' }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const gaps = gapsOf(r)
+              const inProgress = r.month === currentMonth
+              const label = new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, {
+                month: 'short',
+                year: 'numeric',
+              })
+              return (
+                <tr key={r.month}>
+                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {label}
+                    {inProgress && (
+                      <div className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>in progress</div>
+                    )}
+                  </td>
+                  <MoneyCell value={r.store} missing={gaps.includes('store')} href="/admin/nayax" />
+                  <MoneyCell
+                    value={r.wolt}
+                    missing={gaps.includes('wolt')}
+                    href="/admin/wolt"
+                    missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
+                  />
+                  <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
+                  <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/expenses" negative />
+                  <td
+                    style={{
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      whiteSpace: 'nowrap',
+                      color: gaps.length ? 'var(--fg-muted)' : r.total >= 0 ? 'var(--success)' : 'var(--danger)',
+                    }}
+                    title={gaps.length ? 'Incomplete: some data is missing' : undefined}
+                  >
+                    {gaps.length ? '~ ' : ''}{r.total < 0 ? '−' : ''}{ILS.format(Math.abs(r.total))}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function MoneyCell({ value, missing, href, missingLabel, negative }) {
+  return (
+    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      {value != null && (
+        <div>{negative && value > 0 ? '−' : ''}{ILS.format(value)}</div>
+      )}
+      {missing ? (
+        <Link
+          href={href}
+          style={{
+            display: 'inline-block',
+            marginTop: value != null ? 4 : 0,
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            padding: '2px 8px',
+            borderRadius: 999,
+            background: 'rgba(212, 155, 74, 0.15)',
+            color: 'var(--warning)',
+          }}
+        >
+          {missingLabel || 'Missing'}
+        </Link>
+      ) : value == null ? (
+        <span className="muted">—</span>
+      ) : null}
+    </td>
   )
 }
 
