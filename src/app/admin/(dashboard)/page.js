@@ -4,6 +4,7 @@ import { listShifts } from '@/lib/db/shifts'
 import { getWoltPeriodSummaries } from '@/lib/db/wolt'
 import { getMonthlyOverview } from '@/lib/db/finance'
 import MonthRangePicker from '@/components/MonthRangePicker'
+import IncomeChart from '@/components/IncomeChart'
 import { formatDuration, formatTime } from '@/lib/format'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
@@ -74,7 +75,7 @@ export default async function AdminOverviewPage({ searchParams }) {
         <StatCard label="Total employees" value={employees.length} />
       </div>
 
-      <MonthlySummaryCard rows={overview} from={sp?.from} to={sp?.to} />
+      <MonthlySummaryCard rows={overview} searchParams={sp || {}} />
 
       {/* Section tiles — direct entry to each admin area */}
       <div
@@ -209,7 +210,9 @@ function monthsBetween(from, to) {
   return months
 }
 
-function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
+function MonthlySummaryCard({ rows: allRows, searchParams }) {
+  const { from: fromParam, to: toParam } = searchParams
+  const view = searchParams.view === 'chart' ? 'chart' : 'table'
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
@@ -262,75 +265,128 @@ function MonthlySummaryCard({ rows: allRows, from: fromParam, to: toParam }) {
           defaultLabel={`Last ${DEFAULT_MONTHS} months`}
         />
       </div>
-      <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
-        Amounts without VAT. The small number under each amount includes VAT, as Nayax and Wolt show it.
-      </p>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th style={{ textAlign: 'right' }}>Store</th>
-              <th style={{ textAlign: 'right' }}>Wolt (after fees)</th>
-              <th style={{ textAlign: 'right' }}>Expenses</th>
-              <th style={{ textAlign: 'right' }}>Salary</th>
-              <th style={{ textAlign: 'right' }}>Profit</th>
-              <th style={{ textAlign: 'right' }} title="VAT on sales minus reclaimable VAT on Wolt fees and expenses. Not part of profit.">
-                VAT to pay
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const gaps = gapsOf(r)
-              const inProgress = r.month === currentMonth
-              const label = new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, {
-                month: 'short',
-                year: 'numeric',
-              })
-              return (
-                <tr key={r.month}>
-                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {label}
-                    {inProgress && (
-                      <div className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>in progress</div>
-                    )}
-                  </td>
-                  <MoneyCell value={r.store} missing={gaps.includes('store')} href="/admin/nayax" />
-                  <MoneyCell
-                    value={r.wolt}
-                    extra={r.wolt_total_sales != null ? `${ILS.format(r.wolt_total_sales)} total sales` : null}
-                    missing={gaps.includes('wolt')}
-                    href="/admin/wolt"
-                    missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
-                  />
-                  <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
-                  <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/shifts" negative />
-                  <td
-                    style={{
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums',
-                      whiteSpace: 'nowrap',
-                      color: gaps.length ? 'var(--fg-muted)' : r.profit >= 0 ? 'var(--success)' : 'var(--danger)',
-                    }}
-                    title={gaps.length ? 'Incomplete: some data is missing' : undefined}
-                  >
-                    {gaps.length ? '~ ' : ''}{signed(r.profit)}
-                  </td>
-                  <td
-                    className="muted"
-                    style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
-                    title={gaps.length ? 'Incomplete: some data is missing' : undefined}
-                  >
-                    {gaps.length ? '~ ' : ''}{signed(r.vat_to_pay)}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      <div className="row" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
+          {view === 'chart'
+            ? 'Amounts without VAT. Hover a month for the numbers.'
+            : 'Amounts without VAT. The small number under each amount includes VAT, as Nayax and Wolt show it.'}
+        </p>
+        <ViewToggle view={view} searchParams={searchParams} />
       </div>
+      {view === 'chart' ? (
+        <IncomeChart
+          rows={[...rows].reverse().map((r) => ({
+            month: r.month,
+            label: new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short' }),
+            store: r.store?.excl ?? null,
+            wolt: r.wolt?.excl ?? null,
+            inProgress: r.month === currentMonth,
+          }))}
+        />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th style={{ textAlign: 'right' }}>Store</th>
+                <th style={{ textAlign: 'right' }}>Wolt (after fees)</th>
+                <th style={{ textAlign: 'right' }}>Expenses</th>
+                <th style={{ textAlign: 'right' }}>Salary</th>
+                <th style={{ textAlign: 'right' }}>Profit</th>
+                <th style={{ textAlign: 'right' }} title="VAT on sales minus reclaimable VAT on Wolt fees and expenses. Not part of profit.">
+                  VAT to pay
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const gaps = gapsOf(r)
+                const inProgress = r.month === currentMonth
+                const label = new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, {
+                  month: 'short',
+                  year: 'numeric',
+                })
+                return (
+                  <tr key={r.month}>
+                    <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {label}
+                      {inProgress && (
+                        <div className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>in progress</div>
+                      )}
+                    </td>
+                    <MoneyCell value={r.store} missing={gaps.includes('store')} href="/admin/nayax" />
+                    <MoneyCell
+                      value={r.wolt}
+                      extra={r.wolt_total_sales != null ? `${ILS.format(r.wolt_total_sales)} total sales` : null}
+                      missing={gaps.includes('wolt')}
+                      href="/admin/wolt"
+                      missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
+                    />
+                    <MoneyCell value={r.expenses} missing={gaps.includes('expenses')} href="/admin/expenses" negative />
+                    <MoneyCell value={r.salary} missing={gaps.includes('salary')} href="/admin/shifts" negative />
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                        color: gaps.length ? 'var(--fg-muted)' : r.profit >= 0 ? 'var(--success)' : 'var(--danger)',
+                      }}
+                      title={gaps.length ? 'Incomplete: some data is missing' : undefined}
+                    >
+                      {gaps.length ? '~ ' : ''}{signed(r.profit)}
+                    </td>
+                    <td
+                      className="muted"
+                      style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+                      title={gaps.length ? 'Incomplete: some data is missing' : undefined}
+                    >
+                      {gaps.length ? '~ ' : ''}{signed(r.vat_to_pay)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Table / Chart switch. Links keep the other params (from, to), so the range stays.
+function ViewToggle({ view, searchParams }) {
+  const hrefFor = (v) => {
+    const params = new URLSearchParams(
+      Object.entries(searchParams).filter(([, value]) => typeof value === 'string'),
+    )
+    if (v === 'table') params.delete('view')
+    else params.set('view', v)
+    const qs = params.toString()
+    return qs ? `/admin?${qs}` : '/admin'
+  }
+  const item = (v, label) => (
+    <Link
+      href={hrefFor(v)}
+      scroll={false}
+      aria-current={view === v ? 'page' : undefined}
+      style={{
+        padding: '6px 14px',
+        fontSize: '0.85rem',
+        fontWeight: 600,
+        borderRadius: 8,
+        background: view === v ? 'var(--brand-blue-bg)' : 'transparent',
+        color: view === v ? 'var(--brand-blue-dark)' : 'var(--fg-muted)',
+      }}
+    >
+      {label}
+    </Link>
+  )
+  return (
+    <div className="row" style={{ gap: 2, padding: 2, border: '1px solid var(--border)', borderRadius: 10 }}>
+      {item('table', 'Table')}
+      {item('chart', 'Chart')}
     </div>
   )
 }
