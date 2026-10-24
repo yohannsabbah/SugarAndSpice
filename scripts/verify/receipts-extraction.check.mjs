@@ -23,8 +23,8 @@ const cases = [
   ['illegible → low', parseExtraction(ok({ ...ref, legible: false })).ai_confidence, 'low'],
   ['refusal', throws(() => parseExtraction({ stop_reason: 'refusal', content: [] })), 'Model refused'],
   ['cut off', throws(() => parseExtraction({ stop_reason: 'max_tokens', content: [] })), 'Model output was cut off'],
-  ['bedrock model id', req.model, 'anthropic.claude-haiku-4-5'],
-  ['no effort (Haiku 4.5 rejects it)', 'effort' in req.output_config, false],
+  ['model id', req.model, 'us.anthropic.claude-haiku-4-5-20251001-v1:0'],
+  ['no effort param', 'effort' in req.output_config, false],
   ['image before text', req.messages[0].content[0].type, 'image'],
   ['six required fields', req.output_config.format.schema.required.length, 6],
   ['no thinking param', 'thinking' in req, false],
@@ -37,7 +37,7 @@ for (const [name, actual, expected] of cases) {
     console.error(`FAIL ${name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
   }
 }
-if (EXTRACTION_MODEL !== 'anthropic.claude-haiku-4-5') failed++
+if (EXTRACTION_MODEL !== 'us.anthropic.claude-haiku-4-5-20251001-v1:0') failed++
 if (failed) {
   console.error(`${failed}/${cases.length} cases failed`)
   process.exit(1)

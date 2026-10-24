@@ -18,16 +18,16 @@ This supersedes the plan text below wherever they disagree.
 - Packages: `@anthropic-ai/sdk@0.132.1` and `@anthropic-ai/bedrock-sdk@0.34.4`
   (both published before 2026-10-09; the Bedrock package needs `@anthropic-ai/sdk`
   `>=0.115.1 <1`).
-- Client: `import { AnthropicBedrockMantle } from '@anthropic-ai/bedrock-sdk'`,
-  `new AnthropicBedrockMantle({ awsRegion, awsAccessKey, awsSecretAccessKey })`.
-  The option is `awsSecretAccessKey` (from the package's `mantle-client.d.ts`), not
-  the legacy client's `awsSecretKey`.
-- Model ID: `anthropic.claude-haiku-5-5`. The request body is unchanged.
+- Client (amended 2026-10-24): `import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'`,
+  `new AnthropicBedrock({ awsRegion, awsAccessKey, awsSecretKey })`. Mantle was
+  dropped: it does not serve Haiku 5.5, and the account is approved for Haiku 4.5 only.
+- Model ID (amended 2026-10-24): `us.anthropic.claude-haiku-4-5-20251001-v1:0`, no
+  `effort`. The rest of the request body is unchanged.
 - Environment: `BEDROCK_AWS_ACCESS_KEY_ID`, `BEDROCK_AWS_SECRET_ACCESS_KEY`,
   `BEDROCK_AWS_REGION` (default `us-east-1`). The `AWS_` prefix is avoided, because
   Amplify reserves it. These replace `ANTHROPIC_API_KEY` everywhere in this plan.
-- AWS setup (owner): enable Claude Haiku 5.5 under Bedrock → Model access, and give
-  the user behind those keys `bedrock-mantle:CreateInference`.
+- AWS setup (owner, done 2026-10-24): submit the Anthropic use case form in the
+  Bedrock console, and give the IAM user behind those keys `bedrock:InvokeModel`.
 - Task 9's integration test skips when `BEDROCK_AWS_ACCESS_KEY_ID` is unset.
 
 ## Global Constraints

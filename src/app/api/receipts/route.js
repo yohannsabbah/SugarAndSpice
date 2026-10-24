@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { s3Bucket, s3Client } from '@/lib/s3'
 import { MAX_RECEIPT_BYTES, isJpeg, receiptS3Key } from '@/lib/receipts/keys'
 import { createReceipt, findReceiptByHash } from '@/lib/db/receipts'
 import { getEmployee } from '@/lib/db/employees'
+import { processReceipt } from '@/lib/receipts/processReceipt'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,12 +62,15 @@ export async function POST(req) {
 
     const rawName = form.get('fileName')
     const name = typeof rawName === 'string' ? rawName.trim().slice(0, 200) : ''
-    const { id } = await createReceipt({
+    const { id, created } = await createReceipt({
       s3Key: key,
       fileName: name || 'receipt.jpg',
       sha256,
       uploadedBy: await resolveUploader(form.get('employeeId')),
     })
+    // Read the photo with Claude once the employee has the answer. If the
+    // host stops this early, the row stays pending for the admin page sweep.
+    if (created) after(() => processReceipt(id))
     return NextResponse.json({ id })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })

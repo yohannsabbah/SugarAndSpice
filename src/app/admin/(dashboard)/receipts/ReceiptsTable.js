@@ -50,6 +50,18 @@ export default function ReceiptsTable({ initial }) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, _error: message } : r)))
   }
 
+  // Reads the photo with Claude again. Keeps the signed photo link and the
+  // uploader name, which the API row does not carry.
+  async function retry(id) {
+    setSavingId(id)
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, _error: null } : r)))
+    const res = await fetch(`/api/admin/receipts/${id}/extract`, { method: 'POST' }).catch(() => null)
+    const j = res ? await res.json().catch(() => ({})) : {}
+    setSavingId(null)
+    if (res?.ok && j.receipt) setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...j.receipt } : r)))
+    else alertRow(id, j.error || 'Retry failed')
+  }
+
   async function remove(id) {
     setConfirmDelete(null)
     setSavingId(id)
@@ -123,6 +135,13 @@ export default function ReceiptsTable({ initial }) {
                     Duplicate ·{' '}
                     <button type="button" className="link-button" onClick={() => patch(r.id, { duplicate_of: null })}>
                       Not a duplicate
+                    </button>
+                  </div>
+                )}
+                {(r.parse_status === 'pending' || r.parse_status === 'error') && (
+                  <div>
+                    <button type="button" className="link-button" disabled={savingId === r.id} onClick={() => retry(r.id)}>
+                      Retry
                     </button>
                   </div>
                 )}

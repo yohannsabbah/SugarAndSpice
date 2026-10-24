@@ -60,9 +60,12 @@ supersede the sections below wherever they disagree.
    so the admin page also extracts every `pending` row when it loads, a few at a
    time, and offers a per-row **Retry**. Every receipt is processed at the latest
    when the owner opens the page.
-7. **Provider.** Extraction calls Claude Haiku 5.5 through Amazon Bedrock
-   (`anthropic.claude-haiku-5-5`, `AnthropicBedrockMantle`), billed to the shop's
-   AWS account, instead of the Anthropic API. Credentials come from
+7. **Provider.** Extraction calls Claude Haiku 4.5 through Amazon Bedrock
+   (`us.anthropic.claude-haiku-4-5-20251001-v1:0`, `AnthropicBedrock`, the
+   bedrock-runtime InvokeModel endpoint), billed to the shop's AWS account,
+   instead of the Anthropic API. The shop's account (254386340833) is approved
+   for Haiku 4.5 only: the 5.x models return "not available for this account",
+   and the Mantle endpoint does not serve Haiku 5.5. Credentials come from
    `BEDROCK_AWS_ACCESS_KEY_ID` / `BEDROCK_AWS_SECRET_ACCESS_KEY` /
    `BEDROCK_AWS_REGION`.
 6. **Reference receipt.** `IMG_9420.jpeg`, uploaded by the owner on 2026-10-23,

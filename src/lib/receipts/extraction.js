@@ -1,10 +1,11 @@
 // The Claude request that reads a receipt photo, and the parser for its
 // answer. Pure: no SDK import, so the verify scripts can run it without a key.
-// processReceipt.js sends it through AnthropicBedrockMantle.
+// processReceipt.js sends it through AnthropicBedrock (bedrock-runtime InvokeModel).
 
-// Claude Haiku 4.5 on Amazon Bedrock (the Messages-API "Mantle" endpoint).
-// Haiku 5.5 is gated on Bedrock and this AWS account has no access to it.
-export const EXTRACTION_MODEL = 'anthropic.claude-haiku-4-5'
+// Claude Haiku 4.5 through the US cross-region inference profile. The owner's
+// AWS account is not approved for the 5.x models on Bedrock. Haiku 4.5
+// rejects `effort`, so the request does not send it.
+export const EXTRACTION_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 
 const nullable = (type) => ({ anyOf: [{ type }, { type: 'null' }] })
 
@@ -35,7 +36,6 @@ export function buildExtractionRequest(jpegBase64) {
   return {
     model: EXTRACTION_MODEL,
     max_tokens: 2000,
-    // No `effort`: Claude Haiku 4.5 rejects it.
     output_config: {
       format: { type: 'json_schema', schema: RECEIPT_SCHEMA },
     },
