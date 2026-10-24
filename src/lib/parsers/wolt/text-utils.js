@@ -1,3 +1,4 @@
+import './domMatrixStub.js' // must run before pdf-parse loads pdf.js
 import { PDFParse } from 'pdf-parse'
 import { WorkerMessageHandler } from 'pdfjs-dist/legacy/build/pdf.worker.mjs'
 
