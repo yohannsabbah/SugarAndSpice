@@ -5,9 +5,10 @@ import { processReceipt } from '@/lib/receipts/processReceipt'
 
 export const dynamic = 'force-dynamic'
 
-// A few at a time, so one request stays well inside the hosting time limit.
-// The admin page calls this again until nothing is left.
-const BATCH = 3
+// One at a time, so one request stays well inside the hosting time limit even
+// when a model call times out and retries. The admin page calls this again
+// until nothing is left.
+const BATCH = 1
 
 // Reads receipts that are still pending: an upload whose after() read did not
 // run or did not finish. Oldest first.

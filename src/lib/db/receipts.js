@@ -73,6 +73,20 @@ export async function updateReceipt(id, fields) {
   return data
 }
 
+// Writes only while the row still has one of `statuses`. Returns the row, or
+// null when it changed meanwhile (for example, the owner reviewed it).
+export async function updateReceiptIfStatus(id, statuses, fields) {
+  const { data, error } = await supabase
+    .from('receipts')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .in('parse_status', statuses)
+    .select('*')
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 // The S3 object stays: a mistaken delete stays recoverable.
 export async function deleteReceipt(id) {
   const { error } = await supabase.from('receipts').delete().eq('id', id)
@@ -102,10 +116,9 @@ export async function countPendingReceipts() {
 export async function listDuplicateCandidates({ purchasedAt, total, excludeId }) {
   const { data, error } = await supabase
     .from('receipts')
-    .select('id, purchased_at, purchased_time, receipt_number, total, uploaded_at')
+    .select('id, purchased_at, purchased_time, receipt_number, total, uploaded_at, duplicate_of, parse_status')
     .eq('purchased_at', purchasedAt)
     .eq('total', total)
-    .is('duplicate_of', null)
     .neq('id', excludeId)
     .order('uploaded_at', { ascending: true })
   if (error) throw error

@@ -2,25 +2,14 @@
 
 import { useState } from 'react'
 import { vatAmount } from '@/lib/receipts/money'
+import { needsCheck, sortReceipts } from '@/lib/receipts/sortReceipts'
 
 const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-const STATUS_ORDER = { error: 0, pending: 1 }
-
-// Rows that need the owner sort first: unreadable, then not yet read.
-function sortRows(rows) {
-  return [...rows].sort((a, b) => {
-    const sa = STATUS_ORDER[a.parse_status] ?? 2
-    const sb = STATUS_ORDER[b.parse_status] ?? 2
-    if (sa !== sb) return sa - sb
-    return (a.purchased_at || a.uploaded_at).localeCompare(b.purchased_at || b.uploaded_at)
-  })
-}
 
 // Inline-edit table. Each field saves on blur or Enter through
 // PATCH /api/admin/receipts/[id]; a failed save rolls the row back.
 export default function ReceiptsTable({ initial }) {
-  const [rows, setRows] = useState(() => sortRows(initial))
+  const [rows, setRows] = useState(() => sortReceipts(initial))
   const [savingId, setSavingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
@@ -130,6 +119,11 @@ export default function ReceiptsTable({ initial }) {
                 <span className={`badge receipt-status receipt-status-${r.parse_status}`} title={r.parse_error || ''}>
                   {r.parse_status}
                 </span>
+                {needsCheck(r) && (
+                  <span className="badge receipt-status receipt-status-check" title="Claude was not sure. Check this row against the photo.">
+                    check
+                  </span>
+                )}
                 {r.duplicate_of && (
                   <div className="receipt-dup">
                     Duplicate ·{' '}

@@ -45,7 +45,9 @@ try {
   assert(april.includes(B), 'April lists B by its Israel upload date')
 
   const cands = (await listDuplicateCandidates({ purchasedAt: '2026-03-10', total: 10.9, excludeId: B })).map((r) => r.id)
-  assert(cands.length === 1 && cands[0] === A, `candidates are A only: ${cands}`)
+  // Rows already marked as copies are candidates too: duplicatePlan needs them
+  // to keep the earliest upload as the original.
+  assert(cands.length === 2 && cands.includes(A) && cands.includes(C), `candidates are A and C: ${cands}`)
 
   const updated = await updateReceipt(A, { vendor: 'Test' })
   assert(updated.vendor === 'Test', `update returns the row: ${updated.vendor}`)

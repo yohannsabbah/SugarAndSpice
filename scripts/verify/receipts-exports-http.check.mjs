@@ -46,7 +46,9 @@ for (const [month, expectRows] of [['2026-10', true], ['2026-01', false]]) {
   writeFileSync(zipPath, Buffer.from(await zipRes.arrayBuffer()))
   let names = []
   try {
-    names = execFileSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' }).split('\n').filter(Boolean).sort()
+    // Python's zipfile honors the UTF-8 name flag. macOS unzip prints Hebrew names as "?".
+    const list = 'import sys, zipfile; print("\\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))'
+    names = execFileSync('python3', ['-I', '-c', list, zipPath], { encoding: 'utf8' }).split('\n').filter(Boolean).sort()
   } catch (e) {
     check(`${month} zip readable`, false, e.message.split('\n')[0])
   }

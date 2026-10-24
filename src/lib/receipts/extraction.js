@@ -75,6 +75,20 @@ function text(v) {
   return typeof v === 'string' && v.trim() !== '' ? v.trim() : null
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// Israeli receipts print DD/MM/YY, and a model can swap day and month or misread
+// the year. A wrong date moves the receipt into another month's export, out of
+// the owner's sight. Keep only dates from 90 days before the upload to 1 day
+// after it. Anything else becomes null, so the row stays in its upload month.
+export function plausibleDate(date, uploadedAt) {
+  if (!date) return null
+  // Whole days: the purchase date against the upload's calendar day.
+  const day = Date.parse(`${date}T00:00:00Z`)
+  const uploadDay = Date.parse(`${new Date(uploadedAt).toISOString().slice(0, 10)}T00:00:00Z`)
+  return day >= uploadDay - 90 * DAY_MS && day <= uploadDay + DAY_MS ? date : null
+}
+
 // Turns the model's answer into the values stored on the row. Anything the
 // model got malformed becomes null, for the owner to fill in.
 export function parseExtraction(response) {

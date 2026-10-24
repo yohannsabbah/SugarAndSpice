@@ -35,6 +35,7 @@
 .receipt-status-pending { background: var(--brand-blue-bg); color: var(--brand-blue-dark); }
 .receipt-status-parsed { background: rgba(91, 157, 108, 0.12); color: #2e6b3b; }
 .receipt-status-reviewed { background: rgba(91, 157, 108, 0.25); color: #2e6b3b; }
+.receipt-status-check { background: rgba(214, 150, 40, 0.15); color: #8a5a00; margin-left: 4px; }
 .receipt-status-error { background: rgba(192, 72, 62, 0.12); color: var(--danger); }
 
 .receipt-dup,

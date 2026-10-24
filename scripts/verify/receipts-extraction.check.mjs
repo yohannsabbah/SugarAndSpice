@@ -1,4 +1,4 @@
-import { buildExtractionRequest, parseExtraction, EXTRACTION_MODEL } from '../../src/lib/receipts/extraction.js'
+import { buildExtractionRequest, parseExtraction, plausibleDate, EXTRACTION_MODEL } from '../../src/lib/receipts/extraction.js'
 
 const ok = (json) => ({ stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(json) }] })
 const ref = { purchased_at: '2026-10-21', purchased_time: '20:23:38', vendor: ' גם סטוק נווה שאנן ', receipt_number: '614461', total: 48.6, legible: true }
@@ -28,6 +28,12 @@ const cases = [
   ['image before text', req.messages[0].content[0].type, 'image'],
   ['six required fields', req.output_config.format.schema.required.length, 6],
   ['no thinking param', 'thinking' in req, false],
+  ['date 2 days before upload kept', plausibleDate('2026-10-21', '2026-10-23T06:11:00Z'), '2026-10-21'],
+  ['DD/MM misread (March for October) → null', plausibleDate('2026-03-10', '2026-10-23T06:11:00Z'), null],
+  ['date 89 days before upload kept', plausibleDate('2026-07-26', '2026-10-23T06:11:00Z'), '2026-07-26'],
+  ['date 1 day after upload kept (time zones)', plausibleDate('2026-10-24', '2026-10-23T06:11:00Z'), '2026-10-24'],
+  ['date 2 days after upload → null', plausibleDate('2026-10-25', '2026-10-23T06:11:00Z'), null],
+  ['no date → null', plausibleDate(null, '2026-10-23T06:11:00Z'), null],
 ]
 
 let failed = 0
