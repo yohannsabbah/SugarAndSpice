@@ -96,10 +96,15 @@
 }
 
 .upload-field input[type="file"],
-.upload-field input[type="month"] {
+.upload-field input[type="month"],
+.upload-field input[type="date"],
+.upload-field input[type="number"],
+.upload-field input[type="text"],
+.upload-field select {
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
   font-size: 0.88rem;
+  font-family: inherit;
 }

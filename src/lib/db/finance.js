@@ -4,6 +4,7 @@ import { inferCategory } from './wolt.js'
 import { getMonthlyExpenseSummaries } from './expenses.js'
 import { getReceiptsByMonth } from './receipts.js'
 import { listRecurringExpenses, monthsCovered } from './recurringExpenses.js'
+import { getOtherIncomeByMonth } from './otherIncome.js'
 import { hourlyRateFor, isJenny } from '@/lib/payroll'
 import { EXPENSE_VAT_RATE, VAT_RATE, withoutVat } from '@/lib/vat'
 import { shiftDurationMs } from '@/lib/format'
@@ -277,6 +278,8 @@ async function getMonthlyShiftPay() {
 // {
 //   month: 'YYYY-MM',
 //   store, wolt, expenses: { incl, excl, vat } | null,  // wolt = sales − Wolt fees
+//   store_other: { incl, excl, vat } | null, // income entered by hand (events…), kept
+//                   // apart from `store` so a missing Nayax upload still shows
 //   expenses_receipts, // how much of `expenses` (with VAT) comes from receipt photos
 //   expenses_recurring, // how much of `expenses` comes from recurring expenses (rent…)
 //   wolt_total_sales, // Wolt "Total sales": with VAT, before fees and refunds | null
@@ -299,7 +302,7 @@ function addMoney(a, b) {
 }
 
 export async function getMonthlyOverview() {
-  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay, receipts, recurring] = await Promise.all([
+  const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }, expenses, shiftPay, receipts, recurring, otherIncome] = await Promise.all([
     supabase
       .from('wolt_periods')
       .select('period_start, gross_sales_incl_vat, refunds_incl_vat, wolt_fees_incl_vat, wolt_fees_excl_vat'),
@@ -311,6 +314,7 @@ export async function getMonthlyOverview() {
     getMonthlyShiftPay(),
     getReceiptsByMonth(),
     listRecurringExpenses(),
+    getOtherIncomeByMonth(),
   ])
   if (e1) throw e1
   if (e2) throw e2
@@ -319,7 +323,7 @@ export async function getMonthlyOverview() {
   const row = (month) => {
     if (!by.has(month)) {
       by.set(month, {
-        month, store: null, wolt: null, wolt_total_sales: null, wolt_periods: 0, expenses: null, salary: null,
+        month, store: null, store_other: null, wolt: null, wolt_total_sales: null, wolt_periods: 0, expenses: null, salary: null,
       })
     }
     return by.get(month)
@@ -383,6 +387,15 @@ export async function getMonthlyOverview() {
     }
   }
 
+  // Income entered by hand (event sales paid to the bank…).
+  for (const [month, list] of otherIncome) {
+    const r = row(month)
+    for (const { amount, includes_vat } of list) {
+      const incl = Number(amount)
+      r.store_other = addMoney(r.store_other, money(incl, includes_vat ? withoutVat(incl) : incl))
+    }
+  }
+
   for (const [month, pay] of shiftPay) {
     const r = row(month)
     r.salary = (r.salary || 0) + pay
@@ -394,7 +407,7 @@ export async function getMonthlyOverview() {
     .sort((a, b) => b.month.localeCompare(a.month))
     .map((r) => ({
       ...r,
-      profit: excl(r.store) + excl(r.wolt) - excl(r.expenses) - (r.salary || 0),
-      vat_to_pay: vat(r.store) + vat(r.wolt) - vat(r.expenses),
+      profit: excl(r.store) + excl(r.store_other) + excl(r.wolt) - excl(r.expenses) - (r.salary || 0),
+      vat_to_pay: vat(r.store) + vat(r.store_other) + vat(r.wolt) - vat(r.expenses),
     }))
 }

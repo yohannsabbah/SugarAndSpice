@@ -19,7 +19,10 @@ export async function PATCH(req, { params }) {
     const row = await updateRecurringExpense(id, { end_month: body.end_month ? `${body.end_month}-01` : null })
     return NextResponse.json({ ok: true, row })
   } catch (e) {
-    // The table's check rejects an end month before the start month.
+    // 23514 = check_violation: the table rejects an end month before the start month.
+    if (e.code === '23514') {
+      return NextResponse.json({ error: 'The last month cannot be before the start month' }, { status: 400 })
+    }
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

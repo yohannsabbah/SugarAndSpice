@@ -272,7 +272,7 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
           rows={[...rows].reverse().map((r) => ({
             month: r.month,
             label: new Date(`${r.month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short' }),
-            store: r.store?.excl ?? null,
+            store: addUp([r.store, r.store_other])?.excl ?? null,
             wolt: r.wolt?.excl ?? null,
             inProgress: r.month === currentMonth,
           }))}
@@ -323,7 +323,12 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                         <div className="muted" style={{ fontSize: '0.75rem', fontWeight: 400 }}>in progress</div>
                       )}
                     </td>
-                    <MoneyCell value={r.store} missing={gaps.includes('store')} href="/admin/nayax" />
+                    <MoneyCell
+                      value={addUp([r.store, r.store_other])}
+                      extra={r.store_other ? `${ILS.format(r.store_other.incl)} other income` : null}
+                      missing={gaps.includes('store')}
+                      href="/admin/nayax"
+                    />
                     <MoneyCell
                       value={r.wolt}
                       extra={r.wolt_total_sales != null ? `${ILS.format(r.wolt_total_sales)} total sales` : null}
@@ -332,7 +337,7 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                       missingLabel={r.wolt_periods > 0 ? `${r.wolt_periods}/${WOLT_PERIODS_PER_MONTH} periods` : undefined}
                     />
                     <MoneyCell
-                      value={addUp([r.store, r.wolt])}
+                      value={addUp([r.store, r.store_other, r.wolt])}
                       incomplete={gaps.includes('store') || gaps.includes('wolt')}
                       strong
                     />

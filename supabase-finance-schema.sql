@@ -705,3 +705,28 @@ alter table recurring_expenses enable row level security;
 drop policy if exists "recurring_expenses anon all" on recurring_expenses;
 create policy "recurring_expenses anon all" on recurring_expenses
   for all using (true) with check (true);
+
+
+------------------------------------------------------------------------
+-- 20. other_income — income outside Nayax and Wolt, entered by hand:
+-- a sale to a company for an event, paid by bank transfer or cheque.
+-- The overview adds it to the Store column of its month.
+------------------------------------------------------------------------
+create table if not exists other_income (
+  id              uuid primary key default gen_random_uuid(),
+  received_on     date not null,                       -- date of the sale / invoice
+  description     text not null,                       -- 'Event — Company X'
+  amount          numeric(12,2) not null check (amount > 0),  -- amount received (₪)
+  includes_vat    boolean not null default true,       -- true: amount includes the VAT owed
+  payment_method  text not null default 'transfer'
+                  check (payment_method in ('transfer', 'cheque', 'cash', 'card', 'other')),
+  notes           text,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists other_income_received_on_idx on other_income (received_on);
+
+alter table other_income enable row level security;
+drop policy if exists "other_income anon all" on other_income;
+create policy "other_income anon all" on other_income
+  for all using (true) with check (true);

@@ -1,5 +1,7 @@
 import { listNayaxPeriods, getNayaxPeriodDetail } from '@/lib/db/nayax'
 import UploadCard from './UploadCard'
+import OtherIncomeCard from './OtherIncomeCard'
+import { getOtherIncomeForMonth } from '@/lib/db/otherIncome'
 import '../wolt/wolt.css'
 import './nayax.css'
 
@@ -35,7 +37,7 @@ export default async function NayaxPage({ searchParams }) {
     if (err.missingSchema) return <SchemaMissingState />
     return <ErrorState error={err} />
   }
-  if (!allPeriods.length) return <EmptyState />
+  if (!allPeriods.length) return <EmptyState month={monthParam || currentMonthYm()} />
 
   // Default to the latest month present in data unless explicitly selected.
   const latest = allPeriods[0]
@@ -51,6 +53,7 @@ export default async function NayaxPage({ searchParams }) {
           <p className="muted">Upload the 3 CSVs for that month below, or pick a different month.</p>
         </div>
         <UploadCard />
+        <OtherIncomeSection month={selectedMonth} />
       </div>
     )
   }
@@ -153,6 +156,8 @@ export default async function NayaxPage({ searchParams }) {
 
       {/* ── Upload more months ──────────────────────────────────────────── */}
       <UploadCard />
+
+      <OtherIncomeSection month={selectedMonth} />
 
       {/* ── Monthly history (if more than one month loaded) ─────────────── */}
       {allPeriods.length > 1 && (
@@ -381,7 +386,26 @@ function TopItems({ items }) {
   )
 }
 
-function EmptyState() {
+function currentMonthYm() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+// Loads the month's hand-entered income (event sales…) for the card.
+async function OtherIncomeSection({ month }) {
+  const { items, tableMissing } = await getOtherIncomeForMonth(month)
+  return (
+    <OtherIncomeCard
+      key={month}
+      month={month}
+      monthLabel={monthLabelOf(`${month}-01`)}
+      items={items}
+      tableMissing={tableMissing}
+    />
+  )
+}
+
+function EmptyState({ month }) {
   return (
     <div className="stack" style={{ gap: 20 }}>
       <div className="card">
@@ -392,6 +416,7 @@ function EmptyState() {
         </p>
       </div>
       <UploadCard />
+      <OtherIncomeSection month={month} />
     </div>
   )
 }
