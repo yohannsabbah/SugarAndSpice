@@ -343,10 +343,6 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
                     />
                     <MoneyCell
                       value={r.expenses}
-                      extra={[
-                        r.expenses_recurring ? `${ILS.format(r.expenses_recurring)} recurring` : null,
-                        r.expenses_receipts ? `${ILS.format(r.expenses_receipts)} from receipts` : null,
-                      ].filter(Boolean).join(' · ') || null}
                       missing={gaps.includes('expenses')}
                       href="/admin/expenses"
                       negative
