@@ -204,6 +204,7 @@
   font-variant-numeric: tabular-nums;
 }
 .warn-text { color: var(--warning); font-weight: 600; }
+.good-text { color: var(--success); font-weight: 600; }
 .up-text   { color: var(--success); font-weight: 600; }
 .down-text { color: var(--danger); font-weight: 600; }
 

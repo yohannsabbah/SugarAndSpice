@@ -15,6 +15,8 @@ export const dynamic = 'force-dynamic'
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
 const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const PCT = (v) => `${(v * 100).toFixed(1)}%`
+// Goal: keep at least this share of total sales as net to bank.
+const NET_PCT_TARGET = 0.6
 
 function fmtDateRange(start, end) {
   return `${start.slice(8, 10)}–${end.slice(8, 10)} ${new Date(start).toLocaleString('en-IL', { month: 'short' })}`
@@ -160,7 +162,7 @@ export default async function WoltInsightsPage({ searchParams }) {
   if (!latest) {
     return (
       <div className="stack" style={{ gap: 20 }}>
-        <UploadAndStatusCard periods={statusPeriods} monthLabel={monthLabel} hasItemsCsv={hasItemsCsv} />
+        <UploadAndStatusCard periods={statusPeriods} hasItemsCsv={hasItemsCsv} />
         <div className="card">
           <h2 className="section-h2">No Wolt data for {monthLabel}</h2>
           <p className="muted">Upload this month&apos;s Wolt packet above, or try selecting a different month.</p>
@@ -211,7 +213,7 @@ export default async function WoltInsightsPage({ searchParams }) {
         </span>
       </div>
 
-      <UploadAndStatusCard periods={statusPeriods} monthLabel={monthLabel} hasItemsCsv={hasItemsCsv} />
+      <UploadAndStatusCard periods={statusPeriods} hasItemsCsv={hasItemsCsv} />
 
       {/* ── Executive summary: 4 boxes ─────────────────────────────── */}
       <div className="kpi-row">
@@ -328,12 +330,14 @@ export default async function WoltInsightsPage({ searchParams }) {
               <th style={{ textAlign: 'right' }}>Orders</th>
               <th style={{ textAlign: 'right' }}>AOV</th>
               <th style={{ textAlign: 'right' }}>Net to bank</th>
+              <th style={{ textAlign: 'right' }}>Net %</th>
             </tr>
           </thead>
           <tbody>
             {[...months].reverse().map((m) => {
               const take = m.gross > 0 ? m.fees / m.gross : 0
               const adsPct = m.gross > 0 ? m.ads / m.gross : 0
+              const netPct = m.gross > 0 ? m.net / m.gross : 0
               const isCurrent = m.month === selectedMonth
               return (
                 <tr key={m.month} style={isCurrent ? { background: 'var(--brand-pink-bg)' } : null}>
@@ -349,11 +353,15 @@ export default async function WoltInsightsPage({ searchParams }) {
                   </td>
                   <td className="num">{ILSp.format(m.aov)}</td>
                   <td className="num" style={{ fontWeight: 700 }}>{ILS.format(m.net)}</td>
+                  <td className="num"><span className={netPct >= NET_PCT_TARGET ? 'good-text' : 'warn-text'}>{PCT(netPct)}</span></td>
                 </tr>
               )
             })}
           </tbody>
         </table>
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 8 }}>
+          Net % = net to bank ÷ total sales. Goal: {PCT(NET_PCT_TARGET)} or more (green).
+        </p>
       </div>
 
       {/* ── Top items + categories for the selected month ─────────── */}
@@ -427,7 +435,7 @@ function periodFilesComplete(p) {
   return !!(p.w2m_received_at && p.m2w_received_at && p.netting_received_at && p.sales_report_received_at && p.orders_total > 0)
 }
 
-function DataCompletenessTable({ periods }) {
+function DataCompletenessTable({ periods, hasItemsCsv }) {
   if (!periods.length) return null
   return (
     <table className="table">
@@ -439,10 +447,11 @@ function DataCompletenessTable({ periods }) {
           <th style={{ textAlign: 'center' }}>Netting</th>
           <th style={{ textAlign: 'center' }}>Sales report</th>
           <th style={{ textAlign: 'center' }}>Purchases CSV</th>
+          <th style={{ textAlign: 'center' }}>Items CSV</th>
         </tr>
       </thead>
       <tbody>
-        {periods.map((p) => (
+        {periods.map((p, i) => (
           <tr key={p.id}>
             <td>
               {new Date(p.period_start).toLocaleDateString('en-IL')} – {new Date(p.period_end).toLocaleDateString('en-IL')}
@@ -452,6 +461,8 @@ function DataCompletenessTable({ periods }) {
             <FileStatusCell ok={!!p.netting_received_at} />
             <FileStatusCell ok={!!p.sales_report_received_at} />
             <FileStatusCell ok={p.orders_total > 0} />
+            {/* One items CSV covers the whole month, so its cell spans both periods. */}
+            {i === 0 && <FileStatusCell ok={hasItemsCsv} rowSpan={periods.length} />}
           </tr>
         ))}
       </tbody>
@@ -459,7 +470,7 @@ function DataCompletenessTable({ periods }) {
   )
 }
 
-function UploadAndStatusCard({ periods, monthLabel, hasItemsCsv }) {
+function UploadAndStatusCard({ periods, hasItemsCsv }) {
   const allPeriodsComplete = periods.length > 0 && periods.every(periodFilesComplete)
   const allComplete = allPeriodsComplete && hasItemsCsv
   const missingCount = periods.filter((p) => !periodFilesComplete(p)).length
@@ -482,21 +493,15 @@ function UploadAndStatusCard({ periods, monthLabel, hasItemsCsv }) {
       </summary>
       <div className="stack" style={{ gap: 16, marginTop: 12 }}>
         <UploadCard bare />
-        <DataCompletenessTable periods={periods} />
-        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <span style={{ color: hasItemsCsv ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
-            {hasItemsCsv ? '✓' : '✗'}
-          </span>
-          <span>Items CSV — {monthLabel}</span>
-        </div>
+        <DataCompletenessTable periods={periods} hasItemsCsv={hasItemsCsv} />
       </div>
     </details>
   )
 }
 
-function FileStatusCell({ ok }) {
+function FileStatusCell({ ok, rowSpan }) {
   return (
-    <td style={{ textAlign: 'center' }}>
+    <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'middle' }}>
       <span style={{ color: ok ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>{ok ? '✓' : '✗'}</span>
     </td>
   )
