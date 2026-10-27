@@ -46,7 +46,11 @@ export async function processReceipt(id, { client } = {}) {
     const row = await getReceipt(id)
     if (!row || !READABLE.includes(row.parse_status)) return { status: 'skipped' }
     const claude = client || bedrockClient()
-    if (!claude) return { status: 'skipped' }
+    if (!claude) {
+      // Visible in the Amplify logs: without this line the row just stays pending.
+      console.warn(`Receipt ${id} not read: BEDROCK_AWS_ACCESS_KEY_ID or BEDROCK_AWS_SECRET_ACCESS_KEY is not set`)
+      return { status: 'skipped' }
+    }
 
     try {
       const object = await s3Client().send(new GetObjectCommand({ Bucket: s3Bucket(), Key: row.s3_key }))

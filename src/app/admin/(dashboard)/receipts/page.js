@@ -61,6 +61,17 @@ export default async function ReceiptsPage({ searchParams }) {
         </div>
       </div>
 
+      {/* Without these keys processReceipt skips every photo and rows stay pending. */}
+      {!(process.env.BEDROCK_AWS_ACCESS_KEY_ID && process.env.BEDROCK_AWS_SECRET_ACCESS_KEY) && (
+        <div className="insight bad">
+          <div className="insight-title">Receipts cannot be read</div>
+          <div className="insight-body">
+            The server has no Bedrock keys. Add BEDROCK_AWS_ACCESS_KEY_ID, BEDROCK_AWS_SECRET_ACCESS_KEY and
+            BEDROCK_AWS_REGION in Amplify (Hosting → Environment variables), then redeploy.
+          </div>
+        </div>
+      )}
+
       <PendingSweeper pendingCount={pendingCount} />
 
       {rows.length === 0 ? (
