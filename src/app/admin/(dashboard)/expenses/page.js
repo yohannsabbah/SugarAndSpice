@@ -1,7 +1,6 @@
 import { listExpenses, listPaymentMethods, EXPENSE_CATEGORIES, CATEGORY_LABEL } from '@/lib/db/expenses'
 import UploadCard from './UploadCard'
-import ManualEntryCard from './ManualEntryCard'
-import RecurringExpensesCard from './RecurringExpensesCard'
+import AddExpenseCard from './AddExpenseCard'
 import { getRecurringExpenses } from '@/lib/db/recurringExpenses'
 import ExpensesTable from './ExpensesTable'
 import '../wolt/wolt.css'
@@ -117,20 +116,13 @@ export default async function ExpensesPage({ searchParams }) {
         )}
       </div>
 
-      <RecurringExpensesCard
-        items={recurring.items}
-        tableMissing={recurring.tableMissing}
+      {/* ── Hand entry (one-time or recurring) + statement upload ───────── */}
+      <AddExpenseCard
         categories={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
+        recurring={recurring.items}
+        recurringTableMissing={recurring.tableMissing}
       />
-
-      {/* ── Upload + manual entry ─────────────────────────────────────────── */}
-      <div className="grid-2">
-        <UploadCard />
-        <ManualEntryCard
-          categories={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
-          paymentMethods={paymentMethods}
-        />
-      </div>
+      <UploadCard />
     </div>
   )
 }

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
 import { supabase } from '@/lib/supabase'
-import { EXPENSE_CATEGORIES, rowHash } from '@/lib/db/expenses'
+import { EXPENSE_CATEGORIES, PAID_BY, paymentMethodIdFor, rowHash } from '@/lib/db/expenses'
 
 // POST /api/admin/expenses
-//   body: { transaction_date, vendor, amount, category, payment_method_id?,
+//   body: { transaction_date, vendor, amount, category, payment_method_id? | paid_by?,
 //           notes?, billing_date?, is_business? }
+// paid_by is a key of PAID_BY ('cheque', 'transfer', ...).
 // Creates a manual expense (rent, salary, cash purchase, anything not from a
 // CSV import).
 export async function POST(req) {
@@ -27,6 +28,17 @@ export async function POST(req) {
   if (!Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ error: 'amount must be a positive number' }, { status: 400 })
   }
+  if (body.paid_by != null && !PAID_BY[body.paid_by]) {
+    return NextResponse.json({ error: `Bad paid_by: ${body.paid_by}` }, { status: 400 })
+  }
+  let paymentMethodId = body.payment_method_id || null
+  if (body.paid_by) {
+    try {
+      paymentMethodId = await paymentMethodIdFor(body.paid_by)
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 500 })
+    }
+  }
 
   // Use a hash even for manual entries so accidentally double-submitting the
   // same form doesn't create two identical rows.
@@ -46,7 +58,7 @@ export async function POST(req) {
     currency: 'ILS',
     category: body.category,
     is_business: body.is_business !== false,
-    payment_method_id: body.payment_method_id || null,
+    payment_method_id: paymentMethodId,
     transaction_type: 'manual',
     source_doc_id: null,
     source_row_hash: hash,

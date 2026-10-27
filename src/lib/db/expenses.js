@@ -121,6 +121,39 @@ export async function listPaymentMethods() {
 }
 
 // Get or create the payment_method row for a given credit card.
+// "Paid by" choices for hand-entered expenses, and the payment_methods row
+// each one maps to (kind, display_name). Same values as recurring_expenses.
+export const PAID_BY = {
+  cheque:         { kind: 'other',          display_name: 'Cheque' },
+  transfer:       { kind: 'bank_transfer',  display_name: 'Bank transfer' },
+  standing_order: { kind: 'standing_order', display_name: 'Standing order' },
+  card:           { kind: 'credit_card',    display_name: 'Card' },
+  cash:           { kind: 'cash',           display_name: 'Cash' },
+  other:          { kind: 'other',          display_name: 'Other' },
+}
+
+// The payment_methods row for a "Paid by" choice, created on first use.
+export async function paymentMethodIdFor(paidBy) {
+  const { kind, display_name } = PAID_BY[paidBy]
+  const { data: existing, error: e1 } = await supabase
+    .from('payment_methods')
+    .select('id')
+    .eq('display_name', display_name)
+    .is('card_last4', null)
+    .limit(1)
+    .maybeSingle()
+  if (e1) throw e1
+  if (existing) return existing.id
+
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .insert({ kind, display_name, is_business: true })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id
+}
+
 export async function upsertCreditCard({ card_last4, issuer, display_name }) {
   const { data: existing } = await supabase
     .from('payment_methods')

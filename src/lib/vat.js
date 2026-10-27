@@ -14,7 +14,7 @@ export const EXPENSE_VAT_RATE = {
   cogs_food:     VAT_RATE,
   cogs_supplies: VAT_RATE,
   equipment:     VAT_RATE,
-  rent:          VAT_RATE,
+  rent:          0,          // this landlord is private: no VAT on the rent
   salary:        0,
   utilities:     VAT_RATE,
   marketing:     VAT_RATE,
