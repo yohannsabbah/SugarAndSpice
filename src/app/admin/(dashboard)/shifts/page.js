@@ -18,6 +18,7 @@ import {
   totalOpeningMsInMonth,
 } from '@/lib/openingHours'
 import { hourlyRateFor, isIra, isJenny } from '@/lib/payroll'
+import EmployeesCard from './EmployeesCard'
 
 const ILSp = new Intl.NumberFormat('en-IL', {
   style: 'currency',
@@ -244,6 +245,15 @@ export default function ShiftsAdminPage() {
     setAdding(false)
   }
 
+  function handleEmployeesChange(next, { shiftsChanged } = {}) {
+    setEmployees(next)
+    if (filterEmployeeId && !next.some((e) => e.id === filterEmployeeId)) {
+      setFilterEmployeeId('')
+    } else if (shiftsChanged) {
+      load()
+    }
+  }
+
   return (
     <div className="stack" style={{ gap: 20 }}>
       <div className="card">
@@ -421,6 +431,8 @@ export default function ShiftsAdminPage() {
         )}
         {!loading && <ShiftHighlightLegend />}
       </div>
+
+      <EmployeesCard employees={employees} onChange={handleEmployeesChange} />
 
       {editing && (
         <ShiftEditModal

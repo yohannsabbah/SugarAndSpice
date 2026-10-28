@@ -6,6 +6,7 @@ import { getMonthlyOverview } from '@/lib/db/finance'
 import MonthRangePicker from '@/components/MonthRangePicker'
 import IncomeChart from '@/components/IncomeChart'
 import { formatDuration, formatTime } from '@/lib/format'
+import CombinedSales from './CombinedSales'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
 
@@ -91,25 +92,13 @@ export default async function AdminOverviewPage({ searchParams }) {
           badge={latestWolt ? `P${latestWolt.period_num}` : null}
         />
         <SectionTile
-          href="/admin/sales"
-          title="In-store sales"
-          subtitle="Daily Nayax totals"
-          accent="blue"
-        />
-        <SectionTile
           href="/admin/shifts"
           title="Shifts"
           subtitle={
             openShifts.length
               ? `${openShifts.length} on shift now`
-              : 'Hours per employee'
+              : `${activeEmployees} active employees`
           }
-          accent="blue"
-        />
-        <SectionTile
-          href="/admin/employees"
-          title="Employees"
-          subtitle={`${activeEmployees} active`}
           accent="blue"
         />
       </div>
@@ -178,6 +167,8 @@ export default async function AdminOverviewPage({ searchParams }) {
           </table>
         )}
       </div>
+
+      <CombinedSales month={`${year}-${String(month + 1).padStart(2, '0')}`} monthLabel={monthLabel} />
     </div>
   )
 }

@@ -1,0 +1,14 @@
+/* Overview page — combined in-store + Wolt tables. */
+
+/* ── Inline category bar (column at end of table row) ────────────────────── */
+.overview-bar-cell {
+  width: 100px;
+  padding-right: 4px;
+}
+
+.overview-bar {
+  height: 10px;
+  background: var(--brand-blue-soft, #cfe1f5);
+  border-radius: 3px;
+  min-width: 2px;
+}

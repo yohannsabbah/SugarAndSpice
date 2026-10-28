@@ -34,14 +34,10 @@ export default async function DashboardLayout({ children }) {
         }}
       >
         <NavLink href="/admin">Overview</NavLink>
-        <NavLink href="/admin/employees">Employees</NavLink>
         <NavLink href="/admin/shifts">Shifts</NavLink>
-        <NavLink href="/admin/sales">Sales</NavLink>
         <NavLink href="/admin/nayax">In-store</NavLink>
         <NavLink href="/admin/wolt">Wolt</NavLink>
         <NavLink href="/admin/expenses">Expenses</NavLink>
-        <NavLink href="/admin/receipts">Receipts</NavLink>
-        <NavLink href="/admin/finance">Finance</NavLink>
         <NavLink href="/admin/tv">TV</NavLink>
       </nav>
       <AdminMonthPickerSlot />

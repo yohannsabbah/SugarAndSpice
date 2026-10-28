@@ -1,4 +1,4 @@
-// Month totals grouped for the pie charts on /admin/receipts. Pure, for the
+// Month totals grouped for the pie charts on /admin/expenses. Pure, for the
 // verify scripts. Duplicates and rows without an amount are left out.
 
 function round2(n) {

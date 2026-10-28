@@ -8,9 +8,7 @@ const PATHS_WITH_MONTH = [
   '/admin',
   '/admin/wolt',
   '/admin/nayax',
-  '/admin/finance',
   '/admin/expenses',
-  '/admin/receipts',
   '/admin/shifts',
 ]
 

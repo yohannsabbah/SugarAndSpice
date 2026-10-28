@@ -1,4 +1,4 @@
-// Table order for /admin/receipts. Pure, for the verify scripts.
+// Table order for /admin/expenses. Pure, for the verify scripts.
 
 // A parsed row the model was unsure about, or left without a total or a date.
 // Once the owner edits a row it is reviewed and never needs a check again.
