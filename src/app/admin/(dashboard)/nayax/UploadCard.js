@@ -21,7 +21,7 @@ export default function UploadCard() {
   const [result, setResult] = useState(null) // { ok, summary, checks, error }
   const formRef = useRef(null)
 
-  const ready = hourly && items && payments && /^\d{4}-\d{2}$/.test(month) && !busy
+  const ready = (hourly || items || payments) && /^\d{4}-\d{2}$/.test(month) && !busy
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -30,9 +30,9 @@ export default function UploadCard() {
     setResult(null)
     const fd = new FormData()
     fd.append('month', month)
-    fd.append('hourly', hourly)
-    fd.append('items', items)
-    fd.append('payments', payments)
+    if (hourly) fd.append('hourly', hourly)
+    if (items) fd.append('items', items)
+    if (payments) fd.append('payments', payments)
     try {
       const res = await fetch('/api/admin/nayax/upload', { method: 'POST', body: fd })
       const json = await res.json()
@@ -54,6 +54,9 @@ export default function UploadCard() {
   return (
     <div className="card">
       <h2 className="section-h2">Upload monthly CSVs</h2>
+      <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
+        Upload one file or all three. Each file replaces only its own part of the month.
+      </p>
       <form ref={formRef} onSubmit={onSubmit} className="stack" style={{ gap: 12 }}>
         <div className="upload-grid">
           <label className="upload-field">
@@ -126,7 +129,12 @@ function ResultBanner({ result }) {
         {anyMismatch ? '⚠' : '✓'} {result.period_month?.slice(0, 7)} imported
       </div>
       <div className="insight-body">
-        {s.orders} orders · {ILS.format(s.net)} net · {s.items} items · {s.methods} payment methods
+        {[
+          s.net != null && `${s.orders} orders · ${ILS.format(s.net)} net`,
+          s.methods != null && `${s.methods} payment methods`,
+          s.items != null && `${s.items} items`,
+          s.hours != null && `${s.hours} hours`,
+        ].filter(Boolean).join(' · ')}
         {result.checks && <ChecksList checks={result.checks} />}
       </div>
     </div>

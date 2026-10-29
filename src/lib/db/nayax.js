@@ -5,6 +5,8 @@ import { upsertItem, itemIdsBySku, inferCategory } from './wolt.js'
 // ─────────────────────────────────────────────────────────────────────────────
 // nayax_periods — upsert by period_month.
 // ─────────────────────────────────────────────────────────────────────────────
+// Only the fields passed are written, so an upload of one file keeps the
+// totals that the other files wrote before.
 export async function upsertNayaxPeriod(period) {
   // period.period_month must be 'YYYY-MM-01'
   const label = new Date(period.period_month).toLocaleString('en-IL', {
@@ -15,14 +17,13 @@ export async function upsertNayaxPeriod(period) {
   const payload = {
     period_month: period.period_month,
     period_label: period.period_label || label,
-    gross_incl_vat: period.gross_incl_vat ?? null,
-    refunds_incl_vat: period.refunds_incl_vat ?? 0,
-    net_incl_vat: period.net_incl_vat ?? null,
-    total_orders: period.total_orders ?? null,
-    refund_count: period.refund_count ?? 0,
-    units_sold: period.units_sold ?? null,
-    avg_ticket: period.total_orders ? Number(period.net_incl_vat) / period.total_orders : null,
     updated_at: new Date().toISOString(),
+  }
+  for (const key of ['gross_incl_vat', 'refunds_incl_vat', 'net_incl_vat', 'total_orders', 'refund_count', 'units_sold']) {
+    if (period[key] !== undefined) payload[key] = period[key]
+  }
+  if (period.total_orders !== undefined) {
+    payload.avg_ticket = period.total_orders ? Number(period.net_incl_vat) / period.total_orders : null
   }
 
   const { data: existing } = await supabase
