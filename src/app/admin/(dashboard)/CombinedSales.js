@@ -1,25 +1,11 @@
 import { getCombinedCategoryBreakdown, getCombinedTopItems } from '@/lib/db/finance'
+import { prettyCategory } from '@/lib/itemCategories'
 import './wolt/wolt.css'
 import './overview.css'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
 const PCT = (v) => `${(v * 100).toFixed(1)}%`
 
-const CATEGORY_LABEL = {
-  coffee_hot: 'Hot coffee',
-  coffee_cold: 'Cold coffee',
-  matcha: 'Matcha',
-  mochi: 'Mochi',
-  tea: 'Tea',
-  soda: 'Soda / juice',
-  cake: 'Cakes',
-  pastry: 'Pastry',
-  food: 'Food / bowls',
-  kids: 'Kids',
-  merch: 'Merch',
-  other: 'Other',
-}
-function prettyCategory(c) { return CATEGORY_LABEL[c] || c }
 
 // In-store + Wolt item sales for one month, added together.
 // month: 'YYYY-MM'

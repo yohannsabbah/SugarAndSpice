@@ -13,20 +13,22 @@ const WOLT_DATA_TAGS = ['wolt-data']
 // Categorize item names (Hebrew + English) for the items catalog.
 // Heuristic; can be edited per-item later via the UI.
 // ─────────────────────────────────────────────────────────────────────────────
+// First match wins, so specific rules (food, mochi, pastry → cake, drinks) come before
+// the broad cold/hot coffee rules. Hebrew has no \b, so "cold" (קר) matches
+// only as its own word — otherwise it catches קרם, קרמל and קראנץ'.
 const CATEGORY_RULES = [
-  [/iced|cold|frappe|אייס|קר/i, 'coffee_cold'],
-  [/espresso|cappuc?ino|latte|americano|mocha|raf|קפה|אספרסו|מוקה/i, 'coffee_hot'],
-  [/matcha|מאצ['׳]?ה/i, 'matcha'],
+  [/yogurt|יוגורט|סירניקי|מוזלי/i, 'food'],
+  [/bowl|poke|פוקי|(?:^|\s)בול(?:\s|$)|קער[הת]|pasta|פסטה/i, 'bowl'],
   [/mochi|מוצ['׳]?י/i, 'mochi'],
-  [/tea|תה/i, 'tea'],
-  [/soda|סודה/i, 'soda'],
-  [/cake|עוג(?:ת|ה)|cheesecake|honey|red velvet|sebastian|truffle/i, 'cake'],
-  [/brownie|ברוני|cookie|cookies|alfa(?:jo|ho)res|cupcake|cup ?cake|carrot/i, 'pastry'],
-  [/ice ?cream|גלידה/i, 'pastry'],
+  [/brownie|בראוני|ברואני|cookie|קוקי|עוגי|muffin|מאפי[ןנ]|macaron|chocolate ball|כדור שוקולד|פחזניה|"\s*sh[uo]\s*"|"שו"/i, 'cake'],
+  [/soda|סודה|juice|סחוט|מיץ|קשת|\bcola\b|pellegrino|tonic|^מים$/i, 'soda'],
+  [/tea|(?:^|\s)תה(?:\s|$)/i, 'tea'],
+  [/iced|on ice|cold|frappe|אייס|(?:^|\s)קר(?:ה|ח)?(?:\s|$)|strawberry classic|pistachio white|oatmilk|salted caramel(?! mocha)|ברד/i, 'coffee_cold'],
+  [/espresso|cappuc+ino|latte|americano|mocha|raf|cortado|macchiato|chai|hot chocolate|קפה|אספרסו|מוקה/i, 'coffee_hot'],
+  [/matcha|מאצ['׳]?ה/i, 'matcha'],
+  [/cake|עוג(?:ת|ה)|cheesecake|honey|red velvet|sebastian|truffle|alfa(?:jo|ho)res|אלפחורס|carrot|ice ?cream|גלידה|panna ?cotta|פנה ?קוטה/i, 'cake'],
   [/(?:^|[ ])kids|פרפה/i, 'kids'],
-  [/poke|קינוא|סלמון|סלט|bowl|קער[הת]/i, 'food'],
-  [/panna ?cotta|פנה ?קוטה|sh[uo]|"shu"|"שו"/i, 'pastry'],
-  [/sun ?juice|natural|סחוט|juice/i, 'soda'],
+  [/קינוא|סלמון|סלט/i, 'food'],
   [/spatula|^fork$|^big ?cup$|cute|toy|knited/i, 'merch'],
   [/syrup|maison/i, 'other'],
 ]

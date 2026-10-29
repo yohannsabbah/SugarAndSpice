@@ -196,8 +196,9 @@ create table if not exists items (
   display_name    text not null,                    -- normalized name (Hebrew or English)
   category        text,
   -- Categories the parser will auto-assign from name patterns:
-  --   cake, coffee_hot, coffee_cold, matcha, tea, mochi, pastry,
-  --   soda, kids, food, other
+  --   cake (incl. pastry), coffee_hot, coffee_cold, matcha, tea, mochi,
+  --   soda, kids, bowl, food, merch, other
+  -- (rules: inferCategory in src/lib/db/wolt.js)
   created_at      timestamptz not null default now()
 );
 

@@ -1,6 +1,7 @@
 import { listNayaxPeriods, getNayaxPeriodDetail } from '@/lib/db/nayax'
 import UploadCard from './UploadCard'
 import OtherIncomeCard from './OtherIncomeCard'
+import { prettyCategory } from '@/lib/itemCategories'
 import { getOtherIncomeForMonth } from '@/lib/db/otherIncome'
 import '../wolt/wolt.css'
 import './nayax.css'
@@ -340,7 +341,7 @@ function CategoriesCard({ categories }) {
         <tbody>
           {categories.map((c) => (
             <tr key={c.category}>
-              <td>{c.category}</td>
+              <td>{prettyCategory(c.category)}</td>
               <td className="num">{c.units}</td>
               <td className="num">{ILS.format(c.revenue)}</td>
               <td className="num">{PCT(c.revenue / total)}</td>

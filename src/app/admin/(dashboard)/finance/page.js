@@ -5,6 +5,7 @@ import {
   getMonthlyPnL,
 } from '@/lib/db/finance'
 import { CATEGORY_LABEL as EXPENSE_CATEGORY_LABEL } from '@/lib/db/expenses'
+import { prettyCategory } from '@/lib/itemCategories'
 import '../wolt/wolt.css'
 import './finance.css'
 
@@ -14,21 +15,6 @@ const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS',
 const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const PCT = (v) => `${(v * 100).toFixed(1)}%`
 
-const CATEGORY_LABEL = {
-  coffee_hot: 'Hot coffee',
-  coffee_cold: 'Cold coffee',
-  matcha: 'Matcha',
-  mochi: 'Mochi',
-  tea: 'Tea',
-  soda: 'Soda / juice',
-  cake: 'Cakes',
-  pastry: 'Pastry',
-  food: 'Food / bowls',
-  kids: 'Kids',
-  merch: 'Merch',
-  other: 'Other',
-}
-function prettyCategory(c) { return CATEGORY_LABEL[c] || c }
 
 function monthLabelOf(month) {
   return new Date(`${month}-01`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })

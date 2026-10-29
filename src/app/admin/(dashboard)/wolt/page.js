@@ -7,6 +7,7 @@ import {
   getReviewBreakdownByMonth,
 } from '@/lib/db/wolt'
 import UploadCard from './UploadCard'
+import { prettyCategory } from '@/lib/itemCategories'
 import { periodDates } from '@/lib/parsers/wolt/period'
 import './wolt.css'
 
@@ -379,7 +380,7 @@ export default async function WoltInsightsPage({ searchParams }) {
             <tbody>
               {categoryItems.map((c) => (
                 <tr key={c.category}>
-                  <td>{c.category}</td>
+                  <td>{prettyCategory(c.category)}</td>
                   <td className="num">{c.units}</td>
                   <td className="num">{ILS.format(c.revenue)}</td>
                 </tr>
@@ -750,7 +751,7 @@ function TopItems({ items }) {
             <td className="muted">{i + 1}</td>
             <td>
               <div className="item-name">{it.item_name}</div>
-              <div className="muted item-cat">{it.category || '—'}</div>
+              <div className="muted item-cat">{it.category ? prettyCategory(it.category) : '—'}</div>
             </td>
             <td className="num">
               <div className="bar-cell">
