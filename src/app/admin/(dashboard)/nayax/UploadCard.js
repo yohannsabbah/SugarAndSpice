@@ -5,15 +5,14 @@ import { useRouter } from 'next/navigation'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
 
-// Default to the current month in YYYY-MM.
-function thisMonth() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+function monthLabelOf(ym) {
+  return new Date(`${ym}-01T12:00:00`).toLocaleString('en-IL', { month: 'long', year: 'numeric' })
 }
 
-export default function UploadCard() {
+// month: 'YYYY-MM', the month the page shows. The card has no month picker of
+// its own, so files always land in the month on screen.
+export default function UploadCard({ month }) {
   const router = useRouter()
-  const [month, setMonth] = useState(thisMonth())
   const [hourly, setHourly] = useState(null)
   const [items, setItems] = useState(null)
   const [payments, setPayments] = useState(null)
@@ -53,21 +52,13 @@ export default function UploadCard() {
 
   return (
     <div className="card">
-      <h2 className="section-h2">Upload monthly CSVs</h2>
+      <h2 className="section-h2">Upload CSVs for {monthLabelOf(month)}</h2>
       <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
         Upload one file or all three. Each file replaces only its own part of the month.
+        To upload another month, change the month at the top of the page.
       </p>
       <form ref={formRef} onSubmit={onSubmit} className="stack" style={{ gap: 12 }}>
         <div className="upload-grid">
-          <label className="upload-field">
-            <span>Month</span>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              disabled={busy}
-            />
-          </label>
           <FileField label="Hourly CSV" file={hourly} onChange={setHourly} disabled={busy} />
           <FileField label="Items CSV" file={items} onChange={setItems} disabled={busy} />
           <FileField label="Payments CSV" file={payments} onChange={setPayments} disabled={busy} />

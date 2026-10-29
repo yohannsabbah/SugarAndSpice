@@ -40,9 +40,8 @@ export default async function NayaxPage({ searchParams }) {
   }
   if (!allPeriods.length) return <EmptyState month={monthParam || currentMonthYm()} />
 
-  // Default to the latest month present in data unless explicitly selected.
-  const latest = allPeriods[0]
-  const selectedMonth = monthParam || latest.period_month.slice(0, 7)
+  // Same default as the month picker at the top: the current month.
+  const selectedMonth = monthParam || currentMonthYm()
   const selectedMonthDate = `${selectedMonth}-01`
   const cur = allPeriods.find((p) => p.period_month.slice(0, 7) === selectedMonth) || null
 
@@ -51,9 +50,9 @@ export default async function NayaxPage({ searchParams }) {
       <div className="stack" style={{ gap: 20 }}>
         <div className="card">
           <h2 className="section-h2">No in-store data for {monthLabelOf(selectedMonthDate)}</h2>
-          <p className="muted">Upload the 3 CSVs for that month below, or pick a different month.</p>
+          <p className="muted">Upload the CSVs for that month below, or pick a different month at the top.</p>
         </div>
-        <UploadCard />
+        <UploadCard month={selectedMonth} />
         <OtherIncomeSection month={selectedMonth} />
       </div>
     )
@@ -156,7 +155,7 @@ export default async function NayaxPage({ searchParams }) {
       </div>
 
       {/* ── Upload more months ──────────────────────────────────────────── */}
-      <UploadCard />
+      <UploadCard month={selectedMonth} />
 
       <OtherIncomeSection month={selectedMonth} />
 
@@ -416,7 +415,7 @@ function EmptyState({ month }) {
           The dashboard will populate as soon as the upload succeeds.
         </p>
       </div>
-      <UploadCard />
+      <UploadCard month={month} />
       <OtherIncomeSection month={month} />
     </div>
   )
