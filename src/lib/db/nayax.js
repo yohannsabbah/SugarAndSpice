@@ -1,6 +1,6 @@
 import 'server-only'
 import { supabase } from '@/lib/supabase'
-import { upsertItem, inferCategory } from './wolt.js'
+import { upsertItem, itemIdsBySku, inferCategory } from './wolt.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // nayax_periods — upsert by period_month.
@@ -75,13 +75,15 @@ export async function replaceNayaxPeriodItems(periodId, items) {
   await supabase.from('nayax_period_items').delete().eq('period_id', periodId)
   if (!items.length) return
 
-  // Resolve item_id for each (re-uses the shared `items` catalog).
+  // Resolve item_id for each (re-uses the shared `items` catalog). The parser
+  // keeps only rows with a SKU, so one batched lookup by SKU covers them all.
+  const withSku = items.filter((it) => it.merchant_sku)
+  const ids = await itemIdsBySku(withSku.map((it) => ({ merchant_sku: it.merchant_sku, display_name: it.item_name })))
   const rows = []
   for (const it of items) {
-    const itemId = await upsertItem({
-      merchant_sku: it.merchant_sku || null,
-      display_name: it.item_name,
-    })
+    const itemId = it.merchant_sku
+      ? ids.get(it.merchant_sku)
+      : await upsertItem({ merchant_sku: null, display_name: it.item_name })
     rows.push({
       period_id: periodId,
       item_id: itemId,

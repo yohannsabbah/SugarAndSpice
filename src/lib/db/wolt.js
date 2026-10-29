@@ -210,6 +210,37 @@ async function itemIdsByName(names) {
   return new Map(names.map((n) => [n, itemCache.get(`name:${n}`)]))
 }
 
+// Ids for many items by SKU, in one select and one insert, filling the same
+// cache as upsertItem. items: [{ merchant_sku, display_name }]. One request
+// per item ran past the host's time limit (504) on a Nayax items CSV.
+export async function itemIdsBySku(items) {
+  const nameBySku = new Map()
+  for (const it of items) if (!nameBySku.has(it.merchant_sku)) nameBySku.set(it.merchant_sku, it.display_name)
+  const missing = [...nameBySku.keys()].filter((s) => !itemCache.has(`sku:${s}`))
+  if (missing.length) {
+    const { data: found, error } = await supabase
+      .from('items')
+      .select('id, merchant_sku')
+      .in('merchant_sku', missing)
+    if (error) throw error
+    for (const r of found) itemCache.set(`sku:${r.merchant_sku}`, r.id)
+    const toCreate = missing.filter((s) => !itemCache.has(`sku:${s}`))
+    if (toCreate.length) {
+      const { data: created, error: e2 } = await supabase
+        .from('items')
+        .insert(toCreate.map((s) => ({
+          merchant_sku: s,
+          display_name: nameBySku.get(s),
+          category: inferCategory(nameBySku.get(s)),
+        })))
+        .select('id, merchant_sku')
+      if (e2) throw e2
+      for (const r of created) itemCache.set(`sku:${r.merchant_sku}`, r.id)
+    }
+  }
+  return new Map([...nameBySku.keys()].map((s) => [s, itemCache.get(`sku:${s}`)]))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // wolt_orders — replace all orders for a period (idempotent re-runs).
 // Children (wolt_order_items) cascade-delete via FK.
