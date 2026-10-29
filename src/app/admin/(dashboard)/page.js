@@ -12,13 +12,11 @@ const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS',
 
 export const dynamic = 'force-dynamic'
 
-function parseMonth(ym) {
-  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) {
-    const now = new Date()
-    return { year: now.getFullYear(), month: now.getMonth() }
-  }
-  const [y, m] = ym.split('-').map(Number)
-  return { year: y, month: m - 1 }
+// The overview shows general info for the current month only. It has no month
+// picker, so it ignores ?month=.
+function currentMonth() {
+  const now = new Date()
+  return { year: now.getFullYear(), month: now.getMonth() }
 }
 
 function monthBoundsFor({ year, month }) {
@@ -50,7 +48,7 @@ function fmtHours(ms) {
 
 export default async function AdminOverviewPage({ searchParams }) {
   const sp = await searchParams
-  const { year, month } = parseMonth(sp?.month)
+  const { year, month } = currentMonth()
   const bounds = monthBoundsFor({ year, month })
   const monthLabel = bounds.startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 

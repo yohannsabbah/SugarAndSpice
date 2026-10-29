@@ -5,7 +5,6 @@ import MonthPicker from './MonthPicker'
 
 // Show the month picker only on pages that actually filter by ?month=
 const PATHS_WITH_MONTH = [
-  '/admin',
   '/admin/wolt',
   '/admin/nayax',
   '/admin/expenses',
