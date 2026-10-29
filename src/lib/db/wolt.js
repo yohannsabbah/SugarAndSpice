@@ -13,7 +13,7 @@ const WOLT_DATA_TAGS = ['wolt-data']
 // Categorize item names (Hebrew + English) for the items catalog.
 // Heuristic; can be edited per-item later via the UI.
 // ─────────────────────────────────────────────────────────────────────────────
-// First match wins, so specific rules (food, mochi, pastry → cake, drinks) come before
+// First match wins, so specific rules (food, mochi, pastry → cake, drinks, matcha) come before
 // the broad cold/hot coffee rules. Hebrew has no \b, so "cold" (קר) matches
 // only as its own word — otherwise it catches קרם, קרמל and קראנץ'.
 const CATEGORY_RULES = [
@@ -22,10 +22,10 @@ const CATEGORY_RULES = [
   [/mochi|מוצ['׳]?י/i, 'mochi'],
   [/brownie|בראוני|ברואני|cookie|קוקי|עוגי|muffin|מאפי[ןנ]|macaron|chocolate ball|כדור שוקולד|פחזניה|"\s*sh[uo]\s*"|"שו"/i, 'cake'],
   [/soda|סודה|juice|סחוט|מיץ|קשת|\bcola\b|pellegrino|tonic|^מים$/i, 'soda'],
+  [/matcha|מאצ['׳]?ה|strawberry cloud/i, 'matcha'],
   [/tea|(?:^|\s)תה(?:\s|$)/i, 'tea'],
   [/iced|on ice|cold|frappe|אייס|(?:^|\s)קר(?:ה|ח)?(?:\s|$)|strawberry classic|pistachio white|oatmilk|salted caramel(?! mocha)|ברד/i, 'coffee_cold'],
   [/espresso|cappuc+ino|latte|americano|mocha|raf|cortado|macchiato|chai|hot chocolate|קפה|אספרסו|מוקה/i, 'coffee_hot'],
-  [/matcha|מאצ['׳]?ה/i, 'matcha'],
   [/cake|עוג(?:ת|ה)|cheesecake|honey|red velvet|sebastian|truffle|alfa(?:jo|ho)res|אלפחורס|carrot|ice ?cream|גלידה|panna ?cotta|פנה ?קוטה/i, 'cake'],
   [/(?:^|[ ])kids|פרפה/i, 'kids'],
   [/קינוא|סלמון|סלט/i, 'food'],
