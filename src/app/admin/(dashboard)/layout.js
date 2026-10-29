@@ -39,7 +39,9 @@ export default async function DashboardLayout({ children }) {
         <NavLink href="/admin/wolt">Wolt</NavLink>
         <NavLink href="/admin/expenses">Expenses</NavLink>
         <NavLink href="/admin/tv">TV</NavLink>
-        <NavLink href="/admin/settings">Settings</NavLink>
+        {/* Settings sits apart, at the right end of the bar. */}
+        <div style={{ flex: 1, minWidth: 16 }} />
+        <NavLink href="/admin/settings">⚙ Settings</NavLink>
       </nav>
       <AdminMonthPickerSlot />
       {children}
