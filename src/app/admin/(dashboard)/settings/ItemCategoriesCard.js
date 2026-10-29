@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { ITEM_CATEGORY_LABEL, prettyCategory } from '@/lib/itemCategories'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
+const ILSp = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const SOURCES = ['All', 'In-store', 'Wolt']
 
@@ -65,6 +66,9 @@ export default function ItemCategoriesCard({ items: initialItems }) {
         Each item from Nayax (in-store) and Wolt has one category. Change it here and every page uses the new
         category. New items get a category from their name the first time they are uploaded. Check them here.
       </p>
+      <p className="muted" style={{ fontSize: '0.85rem' }}>
+        Units, average price and revenue add up all uploaded months, VAT included. They grow with each upload.
+      </p>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
         <CategoryChip active={category === 'all'} onClick={() => setCategory('all')}>
@@ -106,7 +110,9 @@ export default function ItemCategoriesCard({ items: initialItems }) {
               <th>Item</th>
               <th>Sold in</th>
               <th>Nayax group</th>
-              <th style={{ textAlign: 'right' }}>Revenue (all months)</th>
+              <th style={{ textAlign: 'right' }}>Units</th>
+              <th style={{ textAlign: 'right' }}>Avg price</th>
+              <th style={{ textAlign: 'right' }}>Revenue</th>
               <th>Category</th>
             </tr>
           </thead>
@@ -119,6 +125,8 @@ export default function ItemCategoriesCard({ items: initialItems }) {
                 </td>
                 <td className="muted" style={{ whiteSpace: 'nowrap' }}>{it.sources.join(', ') || '—'}</td>
                 <td className="muted">{it.nayaxGroups.join(', ') || '—'}</td>
+                <td className="num">{it.units}</td>
+                <td className="num">{it.avgPrice != null ? ILSp.format(it.avgPrice) : '—'}</td>
                 <td className="num">{ILS.format(it.revenue)}</td>
                 <td>
                   <select
