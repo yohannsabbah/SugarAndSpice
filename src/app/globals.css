@@ -279,6 +279,46 @@ textarea {
   color: var(--danger);
 }
 
+.recent-receipts-title {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.recent-receipts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recent-receipts-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.recent-receipts-row:first-child {
+  border-top: none;
+}
+.recent-receipts-thumb {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.recent-receipts-name {
+  flex: 1;
+  font-weight: 600;
+}
+.recent-receipts-empty {
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .btn-lg {
   padding: 20px 24px;
   font-size: 1.125rem;

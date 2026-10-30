@@ -45,7 +45,8 @@ async function uploadReceipt(file, employeeId) {
 
 // variant: 'large' is a full-width main button (home screen card). 'header'
 // is a small corner button. employeeId: who is signed in, the uploader.
-export default function ReceiptButton({ variant = 'header', employeeId }) {
+// onUploaded: called after the server confirms the photo.
+export default function ReceiptButton({ variant = 'header', employeeId, onUploaded }) {
   const [state, setState] = useState('idle')
   const inputRef = useRef(null)
   const fileRef = useRef(null)
@@ -56,6 +57,7 @@ export default function ReceiptButton({ variant = 'header', employeeId }) {
       await uploadReceipt(fileRef.current, employeeId)
       fileRef.current = null
       setState('done')
+      onUploaded?.()
     } catch (e) {
       console.warn('Receipt upload failed:', e)
       // Keep the file for a network retry. Drop an unreadable one, so the next

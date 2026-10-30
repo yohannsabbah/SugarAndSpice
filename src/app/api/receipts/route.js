@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { after, NextResponse } from 'next/server'
-import { PutObjectCommand } from '@aws-sdk/client-s3'
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Bucket, s3Client } from '@/lib/s3'
 import { MAX_RECEIPT_BYTES, isJpeg, receiptS3Key } from '@/lib/receipts/keys'
-import { createReceipt, findReceiptByHash } from '@/lib/db/receipts'
+import { createReceipt, findReceiptByHash, listRecentReceipts } from '@/lib/db/receipts'
 import { getEmployee } from '@/lib/db/employees'
 import { processReceipt } from '@/lib/receipts/processReceipt'
 
@@ -18,6 +19,30 @@ async function resolveUploader(employeeId) {
     return employee ? employee.id : null
   } catch {
     return null // e.g. not a uuid (Postgres 22P02)
+  }
+}
+
+const RECENT_COUNT = 10
+
+// The last uploads for the employee screen, so an employee sees that the
+// photo arrived and does not upload the same paper twice. Public, like POST.
+// The photo links expire after 10 minutes.
+export async function GET() {
+  try {
+    const rows = await listRecentReceipts(RECENT_COUNT)
+    const client = s3Client()
+    const Bucket = s3Bucket()
+    const receipts = await Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        uploadedAt: r.uploaded_at,
+        uploaderName: r.employees?.name ?? null,
+        imageUrl: await getSignedUrl(client, new GetObjectCommand({ Bucket, Key: r.s3_key }), { expiresIn: 600 }),
+      })),
+    )
+    return NextResponse.json({ receipts })
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 

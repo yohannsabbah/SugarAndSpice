@@ -35,6 +35,19 @@ export async function createReceipt({ s3Key, fileName, sha256, uploadedBy }) {
   return { id: existing.id, created: false }
 }
 
+// The newest uploads, for the employee screen. Copies (two receipts in one
+// photo) have no hash and are left out, so each photo shows once.
+export async function listRecentReceipts(limit) {
+  const { data, error } = await supabase
+    .from('receipts')
+    .select('id, s3_key, uploaded_at, employees(name)')
+    .not('image_sha256', 'is', null)
+    .order('uploaded_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin page and extraction
 // ─────────────────────────────────────────────────────────────────────────────

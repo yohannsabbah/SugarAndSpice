@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ReceiptButton from '@/components/ReceiptButton'
+import RecentReceipts from '@/components/RecentReceipts'
 import { formatDuration, formatTime } from '@/lib/format'
 import { LAST_EMPLOYEE_KEY } from '@/lib/storageKeys'
 
@@ -109,6 +110,7 @@ function EmployeeHome({ employee, onSignOut }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [, setTick] = useState(0)
+  const [receiptsVersion, setReceiptsVersion] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -197,7 +199,12 @@ function EmployeeHome({ employee, onSignOut }) {
               {busy ? 'Starting…' : 'Start shift'}
             </button>
           )}
-          <ReceiptButton variant="large" employeeId={employee.id} />
+          <ReceiptButton
+            variant="large"
+            employeeId={employee.id}
+            onUploaded={() => setReceiptsVersion((v) => v + 1)}
+          />
+          <RecentReceipts refreshKey={receiptsVersion} />
         </div>
       </div>
     </div>
