@@ -168,11 +168,7 @@ export default async function AdminOverviewPage({ searchParams }) {
         )}
       </div>
 
-      <CombinedSales
-        month={`${year}-${String(month + 1).padStart(2, '0')}`}
-        monthLabel={monthLabel}
-        searchParams={sp || {}}
-      />
+      <CombinedSales searchParams={sp || {}} />
     </div>
   )
 }

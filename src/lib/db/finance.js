@@ -118,17 +118,22 @@ export async function getMonthlyIncomeSummaries() {
 // Returns categories merged across both channels for a given calendar month.
 // monthStart: 'YYYY-MM-01'
 // Result rows: { category, wolt_revenue, wolt_units, instore_revenue, instore_units, total_revenue, total_units }
-export async function getCombinedCategoryBreakdown(monthStart) {
+// Sales channels for the item helpers: 'both', 'instore' (Nayax) or 'wolt'.
+// A query for a channel that is left out returns no rows.
+const NO_ROWS = { data: [], error: null }
+const wants = (channel, c) => channel === 'both' || channel === c
+
+export async function getCombinedCategoryBreakdown(monthStart, channel = 'both') {
   const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }] = await Promise.all([
-    supabase
+    wants(channel, 'wolt') ? supabase
       .from('wolt_period_items')
       .select('units_sold, revenue_incl_vat, item_name, items(category)')
-      .eq('month_start', monthStart),
+      .eq('month_start', monthStart) : NO_ROWS,
     // Join nayax_period_items → nayax_periods to filter by period_month
-    supabase
+    wants(channel, 'instore') ? supabase
       .from('nayax_period_items')
       .select('units_sold, revenue_incl_vat, item_name, items(category), nayax_periods!inner(period_month)')
-      .eq('nayax_periods.period_month', monthStart),
+      .eq('nayax_periods.period_month', monthStart) : NO_ROWS,
   ])
   if (e1) throw e1
   if (e2) throw e2
@@ -162,16 +167,16 @@ export async function getCombinedCategoryBreakdown(monthStart) {
 
 // Top items combined across both channels for a given month.
 // Merges on item_id when present, else falls back to lowercased item_name.
-export async function getCombinedTopItems(monthStart, limit = 25) {
+export async function getCombinedTopItems(monthStart, limit = 25, channel = 'both') {
   const [{ data: wolt, error: e1 }, { data: nayax, error: e2 }] = await Promise.all([
-    supabase
+    wants(channel, 'wolt') ? supabase
       .from('wolt_period_items')
       .select('item_id, item_name, merchant_sku, units_sold, revenue_incl_vat, items(category)')
-      .eq('month_start', monthStart),
-    supabase
+      .eq('month_start', monthStart) : NO_ROWS,
+    wants(channel, 'instore') ? supabase
       .from('nayax_period_items')
       .select('item_id, item_name, merchant_sku, units_sold, revenue_incl_vat, items(category), nayax_periods!inner(period_month)')
-      .eq('nayax_periods.period_month', monthStart),
+      .eq('nayax_periods.period_month', monthStart) : NO_ROWS,
   ])
   if (e1) throw e1
   if (e2) throw e2
@@ -205,13 +210,15 @@ export async function getCombinedTopItems(monthStart, limit = 25) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-store + Wolt item rows for every month from `fromMonth` to `toMonth`
-// ('YYYY-MM', both included). Returns [{ month, key, item_name, category,
-// units, revenue }], revenue incl. VAT. A month with no uploads has no rows.
-async function getCombinedItemRowsByMonth(fromMonth, toMonth) {
+// ('YYYY-MM', both included). Returns [{ month, channel, key, item_name,
+// category, units, revenue }], revenue incl. VAT. A month with no uploads has no rows.
+// `channel` keeps one channel only (see wants).
+async function getCombinedItemRowsByMonth(fromMonth, toMonth, channel = 'both') {
   const from = `${fromMonth}-01`
   const to = `${toMonth}-01`
   const PAGE = 1000
-  const fetchAll = async (build) => {
+  const fetchAll = async (c, build) => {
+    if (!wants(channel, c)) return []
     const rows = []
     for (let start = 0; ; start += PAGE) {
       const { data, error } = await build().range(start, start + PAGE - 1)
@@ -222,13 +229,13 @@ async function getCombinedItemRowsByMonth(fromMonth, toMonth) {
     return rows
   }
   const [wolt, nayax] = await Promise.all([
-    fetchAll(() => supabase
+    fetchAll('wolt', () => supabase
       .from('wolt_period_items')
       .select('id, item_id, item_name, units_sold, revenue_incl_vat, month_start, items(category)')
       .gte('month_start', from)
       .lte('month_start', to)
       .order('id')),
-    fetchAll(() => supabase
+    fetchAll('instore', () => supabase
       .from('nayax_period_items')
       .select('id, item_id, item_name, units_sold, revenue_incl_vat, items(category), nayax_periods!inner(period_month)')
       .gte('nayax_periods.period_month', from)
@@ -236,8 +243,9 @@ async function getCombinedItemRowsByMonth(fromMonth, toMonth) {
       .order('id')),
   ])
 
-  const toRow = (r, monthStart) => ({
+  const toRow = (r, monthStart, c) => ({
     month: monthStart.slice(0, 7),
+    channel: c,
     key: r.item_id || `name:${(r.item_name || '').trim().toLowerCase()}`,
     item_name: r.item_name,
     category: r.items?.category || inferCategory(r.item_name) || 'other',
@@ -245,9 +253,44 @@ async function getCombinedItemRowsByMonth(fromMonth, toMonth) {
     revenue: Number(r.revenue_incl_vat || 0),
   })
   return [
-    ...wolt.map((r) => toRow(r, r.month_start)),
-    ...nayax.map((r) => toRow(r, r.nayax_periods.period_month)),
+    ...wolt.map((r) => toRow(r, r.month_start, 'wolt')),
+    ...nayax.map((r) => toRow(r, r.nayax_periods.period_month, 'instore')),
   ]
+}
+
+// Units and revenue per group of item rows, split by channel, for a table.
+// `groupOf(row)` returns the fields that name the group, with a `key`.
+// Returns the groups with the most revenue first.
+function totalsBy(rows, groupOf) {
+  const groups = new Map()
+  for (const r of rows) {
+    const g = groupOf(r)
+    const e = groups.get(g.key) || {
+      ...g,
+      wolt_units: 0, wolt_revenue: 0,
+      instore_units: 0, instore_revenue: 0,
+      total_units: 0, total_revenue: 0,
+    }
+    e[`${r.channel}_units`] += r.units
+    e[`${r.channel}_revenue`] += r.revenue
+    e.total_units += r.units
+    e.total_revenue += r.revenue
+    groups.set(g.key, e)
+  }
+  return [...groups.values()].sort((a, b) => b.total_revenue - a.total_revenue)
+}
+
+// Category totals over a range of months, the same shape as
+// getCombinedCategoryBreakdown.
+export async function getCategoryBreakdownForRange(fromMonth, toMonth, channel = 'both') {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth, channel)
+  return totalsBy(rows, (r) => ({ key: r.category, category: r.category }))
+}
+
+// Top items over a range of months, the same shape as getCombinedTopItems.
+export async function getTopItemsForRange(fromMonth, toMonth, limit = 25, channel = 'both') {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth, channel)
+  return totalsBy(rows, (r) => ({ key: r.key, item_name: r.item_name, category: r.category })).slice(0, limit)
 }
 
 // Revenue per month for each group of item rows, for a trend chart.
@@ -270,10 +313,10 @@ function trendBy(rows, groupOf, limit) {
   return { months: [...months].sort(), series: series.slice(0, limit), rest: series.slice(limit) }
 }
 
-// Category revenue per month (in-store + Wolt, incl. VAT). Keeps the top
+// Category revenue per month (incl. VAT), for one channel or both. Keeps the top
 // `limit` categories and folds the others into one 'other' series.
-export async function getCategoryTrend(fromMonth, toMonth, limit = 7) {
-  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth)
+export async function getCategoryTrend(fromMonth, toMonth, { limit = 7, channel = 'both' } = {}) {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth, channel)
   // 'other' is always the fold, so it never takes a top slot of its own.
   const named = trendBy(rows.filter((r) => r.category !== 'other'), (r) => ({ key: r.category }), limit)
   const folded = rows.filter((r) => r.category === 'other' || !named.series.some((s) => s.key === r.category))
@@ -283,10 +326,10 @@ export async function getCategoryTrend(fromMonth, toMonth, limit = 7) {
   return { months, series }
 }
 
-// Revenue per month of the top `limit` items over the range (in-store + Wolt,
-// incl. VAT).
-export async function getTopItemsTrend(fromMonth, toMonth, limit = 8) {
-  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth)
+// Revenue per month of the top `limit` items over the range (incl. VAT), for
+// one channel or both.
+export async function getTopItemsTrend(fromMonth, toMonth, { limit = 8, channel = 'both' } = {}) {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth, channel)
   const { months, series } = trendBy(rows, (r) => ({ key: r.key, label: r.item_name, category: r.category }), limit)
   return { months, series }
 }
