@@ -2,10 +2,13 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
-// Start/end month inputs that write ?from= and ?to= to the URL.
+// Start/end month inputs that write the range to the URL (?from= and ?to= by default).
 // `min` and `max` bound the range. The default range is `defaultFrom` → `max`.
 // All values are 'YYYY-MM'. `defaultLabel` names the reset button.
-export default function MonthRangePicker({ from, to, defaultFrom, min, max, defaultLabel }) {
+// `fromParam` and `toParam` change the param names, so two pickers can share a page.
+export default function MonthRangePicker({
+  from, to, defaultFrom, min, max, defaultLabel, fromParam = 'from', toParam = 'to',
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const search = useSearchParams()
@@ -15,10 +18,10 @@ export default function MonthRangePicker({ from, to, defaultFrom, min, max, defa
     // Keep the range in order if the user picks a start after the end.
     if (nextFrom > nextTo) [nextFrom, nextTo] = [nextTo, nextFrom]
     const params = new URLSearchParams(Array.from(search.entries()))
-    if (nextFrom === defaultFrom) params.delete('from')
-    else params.set('from', nextFrom)
-    if (nextTo === max) params.delete('to')
-    else params.set('to', nextTo)
+    if (nextFrom === defaultFrom) params.delete(fromParam)
+    else params.set(fromParam, nextFrom)
+    if (nextTo === max) params.delete(toParam)
+    else params.set(toParam, nextTo)
     const qs = params.toString()
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }

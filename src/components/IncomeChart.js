@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { compact, niceTicks } from './chartScale'
 
 // Monthly income without VAT: Store and Wolt as side-by-side columns, and their
 // total as a line. Colors were checked with the dataviz palette validator
@@ -20,19 +21,6 @@ const PLOT_H = H - M.top - M.bottom
 const BAR_MAX = 24
 const BAR_GAP = 2
 const MIN_WIDTH = 600
-
-// Round the axis maximum up to 1, 2 or 5 × 10^n and return 4 even steps.
-function niceTicks(max) {
-  if (max <= 0) return [0, 1000, 2000, 3000, 4000]
-  const raw = max / 4
-  const pow = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 5, 10].map((f) => f * pow).find((s) => s >= raw)
-  return [0, 1, 2, 3, 4].map((i) => i * step)
-}
-
-function compact(n) {
-  return n >= 1000 ? `₪${Math.round(n / 1000)}K` : `₪${n}`
-}
 
 // Column with a 4px rounded top and a square base.
 function columnPath(x, y, w, h) {

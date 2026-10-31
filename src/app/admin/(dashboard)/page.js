@@ -4,8 +4,10 @@ import { listShifts } from '@/lib/db/shifts'
 import { getWoltPeriodSummaries } from '@/lib/db/wolt'
 import { getMonthlyOverview } from '@/lib/db/finance'
 import MonthRangePicker from '@/components/MonthRangePicker'
+import ViewToggle from '@/components/ViewToggle'
 import IncomeChart from '@/components/IncomeChart'
 import { formatDuration, formatTime } from '@/lib/format'
+import { DEFAULT_MONTHS, FIRST_MONTH, monthsBetween, resolveMonthRange } from '@/lib/monthRange'
 import CombinedSales from './CombinedSales'
 
 const ILS = new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 })
@@ -166,7 +168,11 @@ export default async function AdminOverviewPage({ searchParams }) {
         )}
       </div>
 
-      <CombinedSales month={`${year}-${String(month + 1).padStart(2, '0')}`} monthLabel={monthLabel} />
+      <CombinedSales
+        month={`${year}-${String(month + 1).padStart(2, '0')}`}
+        monthLabel={monthLabel}
+        searchParams={sp || {}}
+      />
     </div>
   )
 }
@@ -174,41 +180,11 @@ export default async function AdminOverviewPage({ searchParams }) {
 // Wolt pays out in two half-month periods, so a month needs both to be complete.
 const WOLT_PERIODS_PER_MONTH = 2
 
-const YM = /^\d{4}-\d{2}$/
-// The business's first month. The month summary never goes earlier.
-const FIRST_MONTH = '2026-01'
-// Months the summary shows by default, counting the current month.
-const DEFAULT_MONTHS = 6
-
-// Every 'YYYY-MM' from `from` to `to`, oldest first.
-function monthsBetween(from, to) {
-  const months = []
-  let [y, m] = from.split('-').map(Number)
-  for (let key = from; key <= to; ) {
-    months.push(key)
-    m += 1
-    if (m > 12) { m = 1; y += 1 }
-    key = `${y}-${String(m).padStart(2, '0')}`
-  }
-  return months
-}
-
 function MonthlySummaryCard({ rows: allRows, searchParams }) {
   const { from: fromParam, to: toParam } = searchParams
   const view = searchParams.view === 'chart' ? 'chart' : 'table'
-  const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-  // The range defaults to the last DEFAULT_MONTHS months and can reach back to
-  // FIRST_MONTH. Months with no data become empty rows, so every column is
-  // flagged as missing.
-  const back = new Date(now.getFullYear(), now.getMonth() - (DEFAULT_MONTHS - 1), 1)
-  const backMonth = `${back.getFullYear()}-${String(back.getMonth() + 1).padStart(2, '0')}`
-  const defaultFrom = backMonth > FIRST_MONTH ? backMonth : FIRST_MONTH
-  const inRange = (ym) => YM.test(ym || '') && ym >= FIRST_MONTH && ym <= currentMonth
-  let from = inRange(fromParam) ? fromParam : defaultFrom
-  let to = inRange(toParam) ? toParam : currentMonth
-  if (from > to) [from, to] = [to, from]
+  // Months with no data become empty rows, so every column is flagged as missing.
+  const { from, to, defaultFrom, currentMonth } = resolveMonthRange(fromParam, toParam)
   const byMonth = new Map(allRows.map((r) => [r.month, r]))
   const rows = monthsBetween(from, to)
     .reverse()
@@ -369,42 +345,6 @@ function MonthlySummaryCard({ rows: allRows, searchParams }) {
           </table>
         </div>
       )}
-    </div>
-  )
-}
-
-// Table / Chart switch. Links keep the other params (from, to), so the range stays.
-function ViewToggle({ view, searchParams }) {
-  const hrefFor = (v) => {
-    const params = new URLSearchParams(
-      Object.entries(searchParams).filter(([, value]) => typeof value === 'string'),
-    )
-    if (v === 'table') params.delete('view')
-    else params.set('view', v)
-    const qs = params.toString()
-    return qs ? `/admin?${qs}` : '/admin'
-  }
-  const item = (v, label) => (
-    <Link
-      href={hrefFor(v)}
-      scroll={false}
-      aria-current={view === v ? 'page' : undefined}
-      style={{
-        padding: '6px 14px',
-        fontSize: '0.85rem',
-        fontWeight: 600,
-        borderRadius: 8,
-        background: view === v ? 'var(--brand-blue-bg)' : 'transparent',
-        color: view === v ? 'var(--brand-blue-dark)' : 'var(--fg-muted)',
-      }}
-    >
-      {label}
-    </Link>
-  )
-  return (
-    <div className="row" style={{ gap: 2, padding: 2, border: '1px solid var(--border)', borderRadius: 10 }}>
-      {item('table', 'Table')}
-      {item('chart', 'Chart')}
     </div>
   )
 }

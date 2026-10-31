@@ -204,6 +204,94 @@ export async function getCombinedTopItems(monthStart, limit = 25) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// In-store + Wolt item rows for every month from `fromMonth` to `toMonth`
+// ('YYYY-MM', both included). Returns [{ month, key, item_name, category,
+// units, revenue }], revenue incl. VAT. A month with no uploads has no rows.
+async function getCombinedItemRowsByMonth(fromMonth, toMonth) {
+  const from = `${fromMonth}-01`
+  const to = `${toMonth}-01`
+  const PAGE = 1000
+  const fetchAll = async (build) => {
+    const rows = []
+    for (let start = 0; ; start += PAGE) {
+      const { data, error } = await build().range(start, start + PAGE - 1)
+      if (error) throw error
+      rows.push(...data)
+      if (data.length < PAGE) break
+    }
+    return rows
+  }
+  const [wolt, nayax] = await Promise.all([
+    fetchAll(() => supabase
+      .from('wolt_period_items')
+      .select('id, item_id, item_name, units_sold, revenue_incl_vat, month_start, items(category)')
+      .gte('month_start', from)
+      .lte('month_start', to)
+      .order('id')),
+    fetchAll(() => supabase
+      .from('nayax_period_items')
+      .select('id, item_id, item_name, units_sold, revenue_incl_vat, items(category), nayax_periods!inner(period_month)')
+      .gte('nayax_periods.period_month', from)
+      .lte('nayax_periods.period_month', to)
+      .order('id')),
+  ])
+
+  const toRow = (r, monthStart) => ({
+    month: monthStart.slice(0, 7),
+    key: r.item_id || `name:${(r.item_name || '').trim().toLowerCase()}`,
+    item_name: r.item_name,
+    category: r.items?.category || inferCategory(r.item_name) || 'other',
+    units: Number(r.units_sold || 0),
+    revenue: Number(r.revenue_incl_vat || 0),
+  })
+  return [
+    ...wolt.map((r) => toRow(r, r.month_start)),
+    ...nayax.map((r) => toRow(r, r.nayax_periods.period_month)),
+  ]
+}
+
+// Revenue per month for each group of item rows, for a trend chart.
+// `groupOf(row)` returns { key, label, category? }. Keeps the `limit` groups
+// with the most revenue over the whole range. Returns { months, series }:
+// months is the sorted list of 'YYYY-MM' that have item data; each series is
+// { key, label, category, total, byMonth: { 'YYYY-MM': revenue } }.
+function trendBy(rows, groupOf, limit) {
+  const months = new Set()
+  const groups = new Map()
+  for (const r of rows) {
+    months.add(r.month)
+    const g = groupOf(r)
+    const e = groups.get(g.key) || { ...g, total: 0, byMonth: {} }
+    e.total += r.revenue
+    e.byMonth[r.month] = (e.byMonth[r.month] || 0) + r.revenue
+    groups.set(g.key, e)
+  }
+  const series = [...groups.values()].sort((a, b) => b.total - a.total)
+  return { months: [...months].sort(), series: series.slice(0, limit), rest: series.slice(limit) }
+}
+
+// Category revenue per month (in-store + Wolt, incl. VAT). Keeps the top
+// `limit` categories and folds the others into one 'other' series.
+export async function getCategoryTrend(fromMonth, toMonth, limit = 7) {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth)
+  // 'other' is always the fold, so it never takes a top slot of its own.
+  const named = trendBy(rows.filter((r) => r.category !== 'other'), (r) => ({ key: r.category }), limit)
+  const folded = rows.filter((r) => r.category === 'other' || !named.series.some((s) => s.key === r.category))
+  const series = [...named.series]
+  if (folded.length) series.push(trendBy(folded, () => ({ key: 'other' }), 1).series[0])
+  const months = [...new Set(rows.map((r) => r.month))].sort()
+  return { months, series }
+}
+
+// Revenue per month of the top `limit` items over the range (in-store + Wolt,
+// incl. VAT).
+export async function getTopItemsTrend(fromMonth, toMonth, limit = 8) {
+  const rows = await getCombinedItemRowsByMonth(fromMonth, toMonth)
+  const { months, series } = trendBy(rows, (r) => ({ key: r.key, label: r.item_name, category: r.category }), limit)
+  return { months, series }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // P&L: Income (from getMonthlyIncomeSummaries) merged with expenses by month.
 // Returns: [{ month, income_gross, income_net, expenses_total,
 //             expenses_by_category, profit, margin }]
