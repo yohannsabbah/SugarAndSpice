@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { netAmount, summarizeReceipts } from '@/lib/receipts/money'
+import { netAmount, summarizeHome, summarizeReceipts } from '@/lib/receipts/money'
 import { breakdown, vendorKey } from '@/lib/receipts/breakdown'
 import { RECEIPT_CATEGORIES, categoryLabel } from '@/lib/receipts/categories'
 
@@ -23,7 +23,8 @@ function categoryColor(key) {
 // Month totals and the two pies. Reads the table's rows, so an edit shows here at once.
 export default function ReceiptsSummary({ rows }) {
   const s = summarizeReceipts(rows)
-  const missing = rows.filter((r) => !r.duplicate_of && (r.total === null || r.total === undefined)).length
+  const home = summarizeHome(rows)
+  const missing = rows.filter((r) => !r.duplicate_of && !r.for_home && (r.total === null || r.total === undefined)).length
 
   const byCategory = breakdown(rows, (r) => r.category).map((x) => ({
     ...x,
@@ -59,6 +60,15 @@ export default function ReceiptsSummary({ rows }) {
           <div className="kpi-label">Net (without VAT)</div>
           <div className="kpi-value">{ILS.format(netAmount(s.total, s.vat))}</div>
         </div>
+        {home.count > 0 && (
+          <div className="card kpi">
+            <div className="kpi-label">For home</div>
+            <div className="kpi-value">{ILS.format(home.total)}</div>
+            <div className="kpi-subtitle">
+              {home.count} receipt{home.count === 1 ? '' : 's'} · not in the expenses, still exported
+            </div>
+          </div>
+        )}
       </div>
 
       {s.total > 0 && (

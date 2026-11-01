@@ -54,6 +54,11 @@ const FIELDS = {
     if (typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)) return v
     throw new Error('uploaded_by must be an employee id')
   },
+  // A purchase for the owner's home: out of the expenses, still exported.
+  for_home(v) {
+    if (typeof v === 'boolean') return v
+    throw new Error('for_home must be true or false')
+  },
   // The owner can only clear a duplicate mark; marking is the extractor's job.
   duplicate_of(v) {
     if (v === null) return null
@@ -70,7 +75,8 @@ function text(name) {
 }
 
 // PATCH /api/admin/receipts/[id] — the owner corrects a field. Any edit marks
-// the row reviewed, so extraction never overwrites it afterwards. A vendor or
+// the row reviewed, so extraction never overwrites it afterwards. A for_home
+// change alone does not: it says nothing about what the photo shows. A vendor or
 // category edit is also saved for the receipt's business number, so later
 // receipts from that business get the owner's values.
 export async function PATCH(req, { params }) {
@@ -104,11 +110,11 @@ export async function PATCH(req, { params }) {
       fields.vat_rate = VAT_RATE
       fields.vat_amount = vatAmount(fields.total)
     }
-    const receipt = await updateReceipt(id, {
-      ...fields,
-      parse_status: 'reviewed',
-      reviewed_at: new Date().toISOString(),
-    })
+    const onlyForHome = Object.keys(fields).every((k) => k === 'for_home')
+    const receipt = await updateReceipt(
+      id,
+      onlyForHome ? fields : { ...fields, parse_status: 'reviewed', reviewed_at: new Date().toISOString() },
+    )
     if (receipt.business_id && ('vendor' in fields || 'category' in fields)) {
       await saveReceiptVendor(receipt.business_id, { vendor: receipt.vendor, category: receipt.category })
     }

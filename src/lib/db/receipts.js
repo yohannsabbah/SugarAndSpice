@@ -69,13 +69,14 @@ export async function listReceiptsForMonth(month) {
   return data
 }
 
-// Every counted receipt (no duplicates, with an amount), grouped by month for
-// the admin overview: Map 'YYYY-MM' → [{ total, category }].
+// Every counted receipt (no duplicates, not for home, with an amount), grouped
+// by month for the admin overview: Map 'YYYY-MM' → [{ total, category }].
 export async function getReceiptsByMonth() {
   const { data, error } = await supabase
     .from('receipts')
     .select('purchased_at, uploaded_at, total, category')
     .is('duplicate_of', null)
+    .eq('for_home', false)
     .not('total', 'is', null)
   if (error) throw error
   const by = new Map()
@@ -136,6 +137,7 @@ export async function createReceiptCopy(row) {
       purchased_time: row.purchased_time,
       vendor: row.vendor,
       category: row.category,
+      for_home: row.for_home,
       vat_rate: row.vat_rate,
       parse_status: 'reviewed',
       reviewed_at: new Date().toISOString(),

@@ -1,5 +1,6 @@
 // Month totals grouped for the pie charts on /admin/expenses. Pure, for the
-// verify scripts. Duplicates and rows without an amount are left out.
+// verify scripts. Duplicates, receipts for home and rows without an amount are
+// left out.
 
 function round2(n) {
   return Math.round(n * 100) / 100
@@ -10,7 +11,7 @@ function round2(n) {
 export function breakdown(rows, keyOf, limit = 7) {
   const sums = new Map()
   for (const r of rows) {
-    if (r.duplicate_of || r.total === null || r.total === undefined) continue
+    if (r.duplicate_of || r.for_home || r.total === null || r.total === undefined) continue
     const key = keyOf(r) || null
     sums.set(key, (sums.get(key) || 0) + Number(r.total))
   }

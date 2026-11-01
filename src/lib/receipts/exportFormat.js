@@ -1,5 +1,7 @@
 // The accountant's handoff: one CSV row per receipt, and a matching file name
-// for each photo in the ZIP. Duplicates are left out of both. Pure.
+// for each photo in the ZIP. Duplicates are left out of both. Receipts for the
+// owner's home stay in, marked in the for_home column and kept in a home/
+// folder of the ZIP. Pure.
 
 import { netAmount } from './money.js'
 
@@ -14,6 +16,7 @@ const CSV_HEADER = [
   'net_amount',
   'uploaded_by',
   'image_file',
+  'for_home',
 ]
 
 const ISRAEL_DATE = new Intl.DateTimeFormat('en-CA', {
@@ -36,7 +39,7 @@ export function zipEntryName(row) {
   const date = row.purchased_at || ISRAEL_DATE.format(new Date(row.uploaded_at))
   const vendor = fileSafe(row.vendor) || 'unknown'
   const amount = row.total === null || row.total === undefined ? 'no-amount' : money(row.total)
-  return `${date}_${vendor}_${amount}_${row.id.slice(0, 8)}.jpg`
+  return `${row.for_home ? 'home/' : ''}${date}_${vendor}_${amount}_${row.id.slice(0, 8)}.jpg`
 }
 
 function cell(value) {
@@ -61,6 +64,7 @@ export function receiptsCsv(rows) {
         money(netAmount(r.total, r.vat_amount)),
         r.employees?.name ?? '',
         zipEntryName(r),
+        r.for_home ? 'yes' : '',
       ]
         .map(cell)
         .join(','),

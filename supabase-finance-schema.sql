@@ -652,6 +652,11 @@ alter table receipts alter column image_sha256 drop not null;
 create index if not exists receipts_s3_key_idx
   on receipts (s3_key);
 
+-- Added 2026-11-01: a receipt the owner paid for the home, not the business.
+-- It stays out of the expense totals but goes to the accountant in the
+-- exports, in its own home/ folder and marked in the CSV.
+alter table receipts add column if not exists for_home boolean not null default false;
+
 -- Added 2026-10-24 (later): the seller's business number (ח.פ / ע.מ), and the
 -- owner's name and category for each business number. The model misreads
 -- Hebrew store names but reads the number well, so one correction by the

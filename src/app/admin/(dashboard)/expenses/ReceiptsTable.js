@@ -83,7 +83,22 @@ export default function ReceiptsTable({ initial, employees }) {
     }
   }
 
-  // Clears the duplicate mark. The only change made without the Edit button.
+  // Marks a receipt as bought for the home, or back to the business. Saved at
+  // once, without the Edit button.
+  async function setForHome(id, forHome) {
+    setSavingId(id)
+    const res = await fetch(`/api/admin/receipts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ for_home: forHome }),
+    }).catch(() => null)
+    const j = res ? await res.json().catch(() => ({})) : {}
+    setSavingId(null)
+    if (res?.ok) setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...j.receipt, _error: null } : r)))
+    else alertRow(id, j.error || 'Update failed')
+  }
+
+  // Clears the duplicate mark. Saved at once, without the Edit button.
   async function notDuplicate(id) {
     setSavingId(id)
     const res = await fetch(`/api/admin/receipts/${id}`, {
@@ -150,6 +165,7 @@ export default function ReceiptsTable({ initial, employees }) {
               <th>Time</th>
               <th>Vendor</th>
               <th>Category</th>
+              <th title="Bought for the home: not in the expenses, still in the exports">For home</th>
               <th>Receipt no.</th>
               <th style={{ textAlign: 'right' }}>Amount</th>
               <th style={{ textAlign: 'right' }}>VAT</th>
@@ -195,6 +211,7 @@ export default function ReceiptsTable({ initial, employees }) {
                           ))}
                         </select>
                       </td>
+                      <ForHomeCell r={r} busy={busy} onChange={setForHome} />
                       <td><Input value={draft.receipt_number} onChange={(v) => setDraft('receipt_number', v)} /></td>
                       <td style={{ textAlign: 'right' }}>
                         <Input type="number" step="0.01" min="0" value={draft.total} onChange={(v) => setDraft('total', v)} />
@@ -206,6 +223,7 @@ export default function ReceiptsTable({ initial, employees }) {
                       <td className="receipt-mono">{r.purchased_time ? r.purchased_time.slice(0, 5) : '—'}</td>
                       <td dir="auto">{r.vendor || '—'}</td>
                       <td className={r.category ? '' : 'muted'}>{r.category ? categoryLabel(r.category) : '—'}</td>
+                      <ForHomeCell r={r} busy={busy} onChange={setForHome} />
                       <td className="receipt-mono">{r.receipt_number || '—'}</td>
                       <td className="num" style={{ textAlign: 'right', fontWeight: 600 }}>
                         {r.total === null || r.total === undefined ? '—' : ILSp.format(r.total)}
@@ -309,6 +327,20 @@ export default function ReceiptsTable({ initial, employees }) {
         />
       )}
     </div>
+  )
+}
+
+function ForHomeCell({ r, busy, onChange }) {
+  return (
+    <td style={{ textAlign: 'center' }}>
+      <input
+        type="checkbox"
+        checked={!!r.for_home}
+        disabled={busy}
+        onChange={(e) => onChange(r.id, e.target.checked)}
+        aria-label="Bought for the home"
+      />
+    </td>
   )
 }
 
