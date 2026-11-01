@@ -13,12 +13,18 @@ function rank(r) {
 }
 
 // Rows that need the owner come first: errors, not yet read, then unsure
-// reads. The rest follow by purchase date.
+// reads. Inside each group the latest comes first: by purchase date (the
+// upload date when there is none), then time, then upload.
 export function sortReceipts(rows) {
   return [...rows].sort((a, b) => {
     const ra = rank(a)
     const rb = rank(b)
     if (ra !== rb) return ra - rb
-    return (a.purchased_at || a.uploaded_at).localeCompare(b.purchased_at || b.uploaded_at)
+    const day = (r) => r.purchased_at || r.uploaded_at.slice(0, 10)
+    return (
+      day(b).localeCompare(day(a)) ||
+      (b.purchased_time || '').localeCompare(a.purchased_time || '') ||
+      b.uploaded_at.localeCompare(a.uploaded_at)
+    )
   })
 }

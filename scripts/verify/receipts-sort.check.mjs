@@ -8,10 +8,12 @@ const rows = [
   row({ id: 'pending', parse_status: 'pending', ai_confidence: null, total: null, purchased_at: null }),
   row({ id: 'error', parse_status: 'error', ai_confidence: null, total: null, purchased_at: null }),
   row({ id: 'reviewed-low', parse_status: 'reviewed', ai_confidence: 'low' }),
+  row({ id: 'same-day-later', purchased_time: '18:00:00' }),
+  row({ id: 'same-day-earlier', purchased_time: '09:00:00' }),
 ]
 
 const cases = [
-  ['order: error, pending, needs check, then by date', sortReceipts(rows).map((r) => r.id), ['error', 'pending', 'unreadable', 'good-early', 'reviewed-low', 'good-late']],
+  ['order: error, pending, needs check, then latest first', sortReceipts(rows).map((r) => r.id), ['error', 'pending', 'unreadable', 'good-late', 'same-day-later', 'same-day-earlier', 'reviewed-low', 'good-early']],
   ['low confidence needs a check', needsCheck(row({ ai_confidence: 'low' })), true],
   ['parsed without total needs a check', needsCheck(row({ total: null })), true],
   ['parsed without date needs a check', needsCheck(row({ purchased_at: null })), true],
